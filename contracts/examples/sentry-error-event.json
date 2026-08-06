@@ -1,0 +1,44 @@
+{
+  "eventID": "fixture-event-001",
+  "dateCreated": "2026-08-06T14:30:00Z",
+  "title": "TypeError: Cannot read properties of undefined",
+  "message": "Cannot read properties of undefined",
+  "culprit": "loadArticle(articles.ts)",
+  "platform": "javascript",
+  "environment": "production",
+  "release": {
+    "version": "fixture-release-001"
+  },
+  "tags": [
+    {"key": "browser", "value": "Fixture Browser"},
+    {"key": "handled", "value": "no"}
+  ],
+  "entries": [
+    {
+      "type": "exception",
+      "data": {
+        "values": [
+          {
+            "type": "TypeError",
+            "value": "Cannot read properties of undefined",
+            "stacktrace": {
+              "frames": [
+                {
+                  "filename": "articles.ts",
+                  "function": "loadArticle",
+                  "lineNo": 42,
+                  "colNo": 13,
+                  "inApp": true
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "user": null,
+  "request": null,
+  "_fixture_notice": "Payload sintético: no contiene datos, URLs ni credenciales reales."
+}
+

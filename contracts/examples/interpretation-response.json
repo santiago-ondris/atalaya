@@ -1,0 +1,20 @@
+{
+  "summary": "La carga del artículo intentó acceder a un valor inexistente.",
+  "explanation": "El flujo continuó sin validar que la respuesta contuviera el objeto esperado.",
+  "severity": "medium",
+  "actionable": true,
+  "suggested_actions": [
+    "Validar la respuesta antes de acceder a sus propiedades.",
+    "Registrar el identificador del artículo que produjo el fallo."
+  ],
+  "model": "fixture/model",
+  "prompt_version": "error-analysis-v1",
+  "usage": {
+    "input_tokens": 240,
+    "output_tokens": 82,
+    "total_tokens": 322
+  },
+  "estimated_cost_usd": 0.00012,
+  "latency_ms": 438
+}
+

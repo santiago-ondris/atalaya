@@ -1,0 +1,43 @@
+# macOS and editors
+.DS_Store
+.idea/
+.vscode/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# JavaScript / TypeScript
+node_modules/
+dist/
+.vite/
+coverage/
+*.log
+npm-debug.log*
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.egg-info/
+.python-version.local
+
+# Go
+bin/
+*.test
+*.out
+
+# Local infrastructure
+.docker/
+
+# Temporary files
+*.tmp
+*.swp
+*~

@@ -1,0 +1,90 @@
+name: atalaya
+
+services:
+  postgres:
+    image: postgres:18.4-alpine
+    environment:
+      POSTGRES_DB: atalaya
+      POSTGRES_USER: atalaya
+      POSTGRES_PASSWORD: atalaya_local
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U atalaya -d atalaya"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  migrate:
+    build:
+      context: ./apps/watchman
+    command:
+      - goose
+      - -dir
+      - /app/migrations
+      - postgres
+      - postgres://atalaya:atalaya_local@postgres:5432/atalaya?sslmode=disable
+      - up
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  watchman:
+    build:
+      context: ./apps/watchman
+    environment:
+      ATALAYA_ENV: development
+      HTTP_ADDRESS: :8080
+      DATABASE_URL: postgres://atalaya:atalaya_local@postgres:5432/atalaya?sslmode=disable
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  interpreter:
+    build:
+      context: ./apps/interpreter
+    environment:
+      ATALAYA_ENVIRONMENT: development
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')"
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  command-center:
+    build:
+      context: ./apps/command-center
+    ports:
+      - "5173:80"
+    depends_on:
+      watchman:
+        condition: service_healthy
+      interpreter:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres_data:

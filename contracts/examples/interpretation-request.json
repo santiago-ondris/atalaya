@@ -1,0 +1,20 @@
+{
+  "event": {
+    "id": "018f47a8-7b2a-7a68-aeb3-2fcb95ea1031",
+    "source": "sentry",
+    "source_event_id": "fixture-event-001",
+    "application": "prensap",
+    "environment": "production",
+    "occurred_at": "2026-08-06T14:30:00Z",
+    "error_type": "TypeError",
+    "message": "Cannot read properties of undefined",
+    "stack_trace": "TypeError: Cannot read properties of undefined\n    at loadArticle (articles.ts:42:13)",
+    "release": "fixture-release-001",
+    "fingerprint": "prensap:production:typeerror:load-article",
+    "metadata": {
+      "runtime": "browser"
+    }
+  },
+  "prompt_version": "error-analysis-v1"
+}
+

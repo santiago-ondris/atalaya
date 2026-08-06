@@ -1,0 +1,255 @@
+openapi: 3.1.0
+info:
+  title: Atalaya Interpreter API
+  version: 1.0.0
+  description: Contrato interno entre Watchman e Interpreter.
+servers:
+  - url: http://interpreter:8000
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Confirma que el proceso HTTP responde.
+      responses:
+        "200":
+          description: Proceso saludable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /ready:
+    get:
+      operationId: getReadiness
+      summary: Confirma que el servicio está configurado para interpretar errores.
+      responses:
+        "200":
+          description: Servicio listo.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+        "503":
+          description: Falta una dependencia o configuración indispensable.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+  /v1/interpretations:
+    post:
+      operationId: createInterpretation
+      summary: Interpreta un error previamente normalizado y sanitizado.
+      parameters:
+        - $ref: "#/components/parameters/CorrelationId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InterpretationRequest"
+      responses:
+        "200":
+          description: Interpretación completada y validada.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterpretationResponse"
+        "422":
+          description: El payload no cumple el contrato.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "502":
+          description: El proveedor respondió de forma inválida.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "503":
+          description: El proveedor no está disponible temporalmente.
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+                minimum: 1
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+        "504":
+          description: El proveedor excedió el timeout configurado.
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+components:
+  parameters:
+    CorrelationId:
+      name: X-Correlation-ID
+      in: header
+      required: true
+      description: UUID generado por Watchman y propagado durante todo el flujo.
+      schema:
+        type: string
+        format: uuid
+  schemas:
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          const: ok
+    InterpretationRequest:
+      type: object
+      additionalProperties: false
+      required: [event, prompt_version]
+      properties:
+        event:
+          $ref: "#/components/schemas/NormalizedError"
+        prompt_version:
+          type: string
+          minLength: 1
+          maxLength: 50
+          examples: [error-analysis-v1]
+    NormalizedError:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - source
+        - source_event_id
+        - application
+        - environment
+        - occurred_at
+        - error_type
+        - message
+        - fingerprint
+      properties:
+        id:
+          type: string
+          format: uuid
+        source:
+          type: string
+          enum: [sentry, application_insights]
+        source_event_id:
+          type: string
+          minLength: 1
+          maxLength: 255
+        application:
+          type: string
+          enum: [farmami, wheels_house, prensap, notizap]
+        environment:
+          type: string
+          minLength: 1
+          maxLength: 100
+        occurred_at:
+          type: string
+          format: date-time
+        error_type:
+          type: string
+          minLength: 1
+          maxLength: 255
+        message:
+          type: string
+          minLength: 1
+          maxLength: 10000
+        stack_trace:
+          type: [string, "null"]
+          maxLength: 50000
+        release:
+          type: [string, "null"]
+          maxLength: 255
+        fingerprint:
+          type: string
+          minLength: 1
+          maxLength: 255
+        metadata:
+          type: object
+          additionalProperties: true
+          default: {}
+    InterpretationResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - summary
+        - explanation
+        - severity
+        - actionable
+        - suggested_actions
+        - model
+        - prompt_version
+        - usage
+        - latency_ms
+      properties:
+        summary:
+          type: string
+          minLength: 1
+          maxLength: 500
+        explanation:
+          type: string
+          minLength: 1
+          maxLength: 5000
+        severity:
+          type: string
+          enum: [critical, high, medium, low]
+        actionable:
+          type: boolean
+        suggested_actions:
+          type: array
+          maxItems: 5
+          items:
+            type: string
+            minLength: 1
+            maxLength: 500
+        model:
+          type: string
+          minLength: 1
+          maxLength: 255
+        prompt_version:
+          type: string
+          minLength: 1
+          maxLength: 50
+        usage:
+          $ref: "#/components/schemas/TokenUsage"
+        estimated_cost_usd:
+          type: [number, "null"]
+          minimum: 0
+        latency_ms:
+          type: integer
+          minimum: 0
+    TokenUsage:
+      type: object
+      additionalProperties: false
+      required: [input_tokens, output_tokens, total_tokens]
+      properties:
+        input_tokens:
+          type: integer
+          minimum: 0
+        output_tokens:
+          type: integer
+          minimum: 0
+        total_tokens:
+          type: integer
+          minimum: 0
+    Problem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, detail, correlation_id]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        detail:
+          type: string
+        correlation_id:
+          type: string
+          format: uuid
+
