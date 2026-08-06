@@ -1,4 +1,4 @@
-module github.com/santiagoondris/atalaya/apps/watchman
+module github.com/santiago-ondris/atalaya/apps/watchman
 
 go 1.26.5
 

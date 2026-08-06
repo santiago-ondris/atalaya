@@ -9,9 +9,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/santiagoondris/atalaya/apps/watchman/internal/config"
-	"github.com/santiagoondris/atalaya/apps/watchman/internal/database"
-	"github.com/santiagoondris/atalaya/apps/watchman/internal/httpserver"
+	"github.com/santiago-ondris/atalaya/apps/watchman/internal/config"
+	"github.com/santiago-ondris/atalaya/apps/watchman/internal/database"
+	"github.com/santiago-ondris/atalaya/apps/watchman/internal/httpserver"
 )
 
 func main() {
