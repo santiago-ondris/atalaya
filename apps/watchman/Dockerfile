@@ -11,7 +11,7 @@ FROM golang:1.26.5-alpine AS goose-build
 RUN go install -tags="no_clickhouse no_libsql no_mssql no_mysql no_sqlite3 no_ydb no_vertica" \
     github.com/pressly/goose/v3/cmd/goose@v3.27.1
 
-FROM alpine:3.23
+FROM alpine:3.24
 
 RUN apk add --no-cache ca-certificates && addgroup -S atalaya && adduser -S atalaya -G atalaya
 WORKDIR /app
