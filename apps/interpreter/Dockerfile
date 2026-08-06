@@ -1,6 +1,6 @@
 FROM ghcr.io/astral-sh/uv:0.12.2 AS uv
 
-FROM python:3.13.14-slim AS build
+FROM python:3.14.0-slim AS build
 
 COPY --from=uv /uv /uvx /bin/
 WORKDIR /app
@@ -10,7 +10,7 @@ RUN uv sync --locked --no-dev --no-install-project
 COPY src ./src
 RUN uv sync --locked --no-dev --no-editable
 
-FROM python:3.13.14-slim
+FROM python:3.14.0-slim
 
 RUN addgroup --system atalaya && adduser --system --ingroup atalaya atalaya
 WORKDIR /app
