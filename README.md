@@ -44,3 +44,17 @@ Para detener el entorno:
 ```bash
 make down
 ```
+
+## Importar eventos de Prensap
+
+Copiar `.env.example` a `.env` y completar `SENTRY_ORG_SLUG`,
+`SENTRY_PROJECT_SLUG` y `SENTRY_AUTH_TOKEN`. El token debe tener únicamente acceso
+de lectura a eventos. Al ejecutar `make up`, Watchman consulta Sentry de inmediato
+y luego cada dos minutos.
+
+```bash
+curl http://localhost:8080/internal/events
+```
+
+El poller queda desactivado de forma explícita si el token está vacío, por lo que
+el entorno local también puede ejecutarse sin credenciales.

@@ -9,9 +9,13 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/config"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/database"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/httpserver"
+	"github.com/santiago-ondris/atalaya/apps/watchman/internal/poller"
+	"github.com/santiago-ondris/atalaya/apps/watchman/internal/sentry"
+	"github.com/santiago-ondris/atalaya/apps/watchman/internal/store"
 )
 
 func main() {
@@ -34,7 +38,21 @@ func main() {
 	}
 	defer pool.Close()
 
-	server := httpserver.New(cfg.HTTPAddress, pool, logger, cfg.ReadinessTimeout)
+	postgresStore := store.NewPostgres(pool)
+	if cfg.Sentry.Enabled() {
+		integrationID, err := postgresStore.EnsureSentryIntegration(ctx, "prensap", cfg.Sentry.OrgSlug, cfg.Sentry.ProjectSlug)
+		if err != nil {
+			logger.Error("failed to configure Prensap Sentry integration", "error", err)
+			os.Exit(1)
+		}
+		sentryClient := sentry.NewClient(cfg.Sentry.BaseURL, cfg.Sentry.OrgSlug, cfg.Sentry.ProjectSlug, cfg.Sentry.AuthToken, nil)
+		go poller.New(sentryClient, postgresStore, integrationID, cfg.PollInterval, logger).Run(ctx)
+		logger.Info("Prensap Sentry polling enabled", "interval", cfg.PollInterval)
+	} else {
+		logger.Warn("Prensap Sentry polling disabled", "reason", "SENTRY_AUTH_TOKEN is not configured")
+	}
+
+	server := httpserver.New(cfg.HTTPAddress, databaseWithQueries{Pool: pool, Postgres: postgresStore}, logger, cfg.ReadinessTimeout)
 	serverErrors := make(chan error, 1)
 	go func() {
 		logger.Info("watchman listening", "address", cfg.HTTPAddress, "environment", cfg.Environment)
@@ -55,4 +73,9 @@ func main() {
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		logger.Error("graceful shutdown failed", "error", err)
 	}
+}
+
+type databaseWithQueries struct {
+	*pgxpool.Pool
+	*store.Postgres
 }

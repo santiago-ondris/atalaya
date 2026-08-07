@@ -9,11 +9,20 @@ import (
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/santiago-ondris/atalaya/apps/watchman/internal/store"
 )
 
 type stubDatabase struct{ err error }
 
 func (database stubDatabase) Ping(context.Context) error { return database.err }
+func (database stubDatabase) ListEvents(context.Context, int) ([]store.EventSummary, error) {
+	return nil, database.err
+}
+func (database stubDatabase) Event(context.Context, string) (store.EventDetail, error) {
+	return store.EventDetail{}, pgx.ErrNoRows
+}
 
 func TestHealth(t *testing.T) {
 	server := newTestServer(stubDatabase{})

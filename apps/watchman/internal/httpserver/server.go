@@ -3,11 +3,15 @@ package httpserver
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/santiago-ondris/atalaya/apps/watchman/internal/store"
 )
 
 const correlationIDHeader = "X-Correlation-ID"
@@ -16,6 +20,8 @@ type correlationIDContextKey struct{}
 
 type Database interface {
 	Ping(context.Context) error
+	ListEvents(context.Context, int) ([]store.EventSummary, error)
+	Event(context.Context, string) (store.EventDetail, error)
 }
 
 type Server struct {
@@ -31,6 +37,8 @@ func New(address string, database Database, logger *slog.Logger, readinessTimeou
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", server.health)
 	mux.HandleFunc("GET /ready", server.ready)
+	mux.HandleFunc("GET /internal/events", server.listEvents)
+	mux.HandleFunc("GET /internal/events/{id}", server.eventDetail)
 
 	server.httpServer = &http.Server{
 		Addr:              address,
@@ -40,6 +48,44 @@ func New(address string, database Database, logger *slog.Logger, readinessTimeou
 	}
 
 	return server
+}
+
+func (s *Server) listEvents(w http.ResponseWriter, request *http.Request) {
+	limit := 50
+	if raw := request.URL.Query().Get("limit"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 1 || parsed > 200 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "limit must be between 1 and 200"})
+			return
+		}
+		limit = parsed
+	}
+	events, err := s.database.ListEvents(request.Context(), limit)
+	if err != nil {
+		s.logger.Error("failed to list events", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to list events"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"events": events})
+}
+
+func (s *Server) eventDetail(w http.ResponseWriter, request *http.Request) {
+	id := request.PathValue("id")
+	if _, err := uuid.Parse(id); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid event id"})
+		return
+	}
+	event, err := s.database.Event(request.Context(), id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "event not found"})
+		return
+	}
+	if err != nil {
+		s.logger.Error("failed to load event", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to load event"})
+		return
+	}
+	writeJSON(w, http.StatusOK, event)
 }
 
 func (s *Server) ListenAndServe() error { return s.httpServer.ListenAndServe() }

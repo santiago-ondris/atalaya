@@ -283,7 +283,12 @@ Alcance:
 - Crear fixtures seguros de eventos Sentry para desarrollo.
 **Demo:** un comando levanta todo el sistema; frontend, Go y Python reportan salud y Go se conecta a PostgreSQL.
  
+ SPRINT 0 LISTO - INFORMACION EN DOCS/SPRINTS/SPRINT-00-FOUNDATION-WALKTHROUGH.md
+
 ### Sprint 1 — Primer evento real de Prensap
+
+**Estado:** implementación y validación con fixtures completadas el 2026-08-07;
+prueba controlada con Sentry real pendiente de configurar credenciales locales.
  
 **Objetivo:** importar de manera confiable errores reales de Prensap desde Sentry.
  
