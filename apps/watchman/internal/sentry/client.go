@@ -31,7 +31,7 @@ func NewClient(baseURL, organization, project, token string, httpClient *http.Cl
 func (client *Client) FetchEvents(ctx context.Context, cursor domain.Cursor) (domain.EventBatch, error) {
 	endpoint := fmt.Sprintf("%s/api/0/projects/%s/%s/events/", client.baseURL,
 		url.PathEscape(client.organization), url.PathEscape(client.project))
-	query := url.Values{"full": {"true"}, "query": {"event.type:error"}}
+	query := url.Values{"full": {"true"}}
 	if cursor.Value != "" {
 		query.Set("cursor", cursor.Value)
 	}
@@ -59,6 +59,9 @@ func (client *Client) FetchEvents(ctx context.Context, cursor domain.Cursor) (do
 	}
 	events := make([]domain.Event, 0, len(payload))
 	for _, item := range payload {
+		if item.Type != "error" {
+			continue
+		}
 		event, err := normalize(item)
 		if err != nil {
 			return domain.EventBatch{}, err
@@ -70,6 +73,7 @@ func (client *Client) FetchEvents(ctx context.Context, cursor domain.Cursor) (do
 
 type apiEvent struct {
 	EventID     string          `json:"eventID"`
+	Type        string          `json:"type"`
 	DateCreated time.Time       `json:"dateCreated"`
 	Title       string          `json:"title"`
 	Message     string          `json:"message"`

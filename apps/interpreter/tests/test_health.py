@@ -15,8 +15,9 @@ def test_health() -> None:
 
 def test_ready() -> None:
     response = asyncio.run(get("/ready"))
-    assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert response.status_code == 503
+    assert response.json()["title"] == "Provider unavailable"
+    assert response.json()["correlation_id"]
 
 
 def test_preserves_valid_correlation_id() -> None:

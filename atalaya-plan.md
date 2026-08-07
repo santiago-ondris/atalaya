@@ -287,8 +287,7 @@ Alcance:
 
 ### Sprint 1 — Primer evento real de Prensap
 
-**Estado:** implementación y validación con fixtures completadas el 2026-08-07;
-prueba controlada con Sentry real pendiente de configurar credenciales locales.
+**Estado:** completado el 2026-08-07, incluida la prueba controlada con Sentry real.
  
 **Objetivo:** importar de manera confiable errores reales de Prensap desde Sentry.
  
@@ -304,8 +303,12 @@ Alcance:
 - Exponer endpoints internos de consulta básica.
 - Agregar pruebas con fixtures y una prueba controlada contra Sentry.
 **Demo:** provocar o seleccionar un error de Prensap, importarlo una sola vez y verlo persistido con sus ocurrencias.
+
+SPRINT 1 LISTO - INFORMACION EN DOCS/SPRINTS/SPRINT-01-PRENSAP-SENTRY-WALKTHROUGH.md
  
 ### Sprint 2 — Interpretación con OpenRouter
+
+**Estado:** completado el 2026-08-07 con un evento real de Prensap y OpenRouter.
  
 **Objetivo:** transformar un evento técnico en una explicación estructurada y útil.
  
@@ -321,6 +324,8 @@ Alcance:
 - Crear la tabla de jobs durables en PostgreSQL.
 - Hacer que Go persista los resultados.
 **Demo:** un error de Prensap pasa automáticamente por el interpreter y queda almacenado con explicación y costo.
+
+SPRINT 2 LISTO - INFORMACION EN docs/sprints/sprint-02-openrouter-walkthrough.md
  
 ### Sprint 3 — Telegram, deduplicación y resiliencia
  
@@ -514,12 +519,3 @@ No todo bloquea el Sprint 0, pero deberá resolverse en el sprint indicado:
 - Acordar política inicial de retención de datos.
 - Definir qué campos pueden contener datos sensibles de clientes y cómo sanitizarlos.
 ---
- 
-## 11. Próximo paso
-
-El Sprint 0 quedó cerrado con estructura ejecutable, toolchains fijados, contratos,
-migraciones, configuración, health checks, correlation IDs, tests y CI definido.
-
-El próximo paso es preparar el **Sprint 1 — Primer evento real de Prensap**. Antes
-de conectar Sentry se convertirán sus criterios de aceptación en tareas pequeñas y
-se revisarán los permisos y campos sensibles de esa integración.

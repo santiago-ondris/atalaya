@@ -11,12 +11,14 @@ import (
 )
 
 func TestFetchEventsNormalizesFixtureAndUsesCursor(t *testing.T) {
-	var authorization, cursor string
+	var authorization, cursor, requestQuery string
 	httpClient := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
 		authorization = request.Header.Get("Authorization")
 		cursor = request.URL.Query().Get("cursor")
-		body := `[{
+		requestQuery = request.URL.Query().Get("query")
+		body := `[{"eventID":"message-001","type":"default","dateCreated":"2026-08-06T14:31:00Z","title":"message"},{
 			"eventID":"fixture-event-001","dateCreated":"2026-08-06T14:30:00Z",
+			"type":"error",
 			"title":"TypeError","message":"","culprit":"loadArticle(articles.ts)",
 			"platform":"javascript","environment":"production","release":{"version":"release-001"},
 			"entries":[{"type":"exception","data":{"values":[{"type":"TypeError","value":"broken token=private-value",
@@ -37,6 +39,9 @@ func TestFetchEventsNormalizesFixtureAndUsesCursor(t *testing.T) {
 	}
 	if cursor != "current-page" {
 		t.Fatalf("expected cursor, got %q", cursor)
+	}
+	if got := requestQuery; got != "" {
+		t.Fatalf("expected no unsupported Sentry search query, got %q", got)
 	}
 	if len(batch.Events) != 1 {
 		t.Fatalf("expected one event, got %d", len(batch.Events))

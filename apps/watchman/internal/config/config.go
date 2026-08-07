@@ -15,7 +15,15 @@ type Config struct {
 	ShutdownTimeout  time.Duration
 	ReadinessTimeout time.Duration
 	PollInterval     time.Duration
+	Interpreter      InterpreterConfig
 	Sentry           SentryConfig
+}
+
+type InterpreterConfig struct {
+	URL          string
+	WorkerID     string
+	Timeout      time.Duration
+	PollInterval time.Duration
 }
 
 type SentryConfig struct {
@@ -34,6 +42,10 @@ func Load() (Config, error) {
 		DatabaseURL:      os.Getenv("DATABASE_URL"),
 		ShutdownTimeout:  10 * time.Second,
 		ReadinessTimeout: 2 * time.Second,
+		Interpreter: InterpreterConfig{
+			URL:      envOrDefault("INTERPRETER_URL", "http://interpreter:8000"),
+			WorkerID: envOrDefault("INTERPRETER_WORKER_ID", "watchman-1"),
+		},
 		Sentry: SentryConfig{
 			AuthToken:   os.Getenv("SENTRY_AUTH_TOKEN"),
 			BaseURL:     envOrDefault("SENTRY_BASE_URL", "https://sentry.io"),
@@ -43,6 +55,14 @@ func Load() (Config, error) {
 	}
 	var err error
 	cfg.PollInterval, err = durationSeconds("POLL_INTERVAL_SECONDS", 120)
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.Interpreter.Timeout, err = durationSeconds("INTERPRETER_TIMEOUT_SECONDS", 30)
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.Interpreter.PollInterval, err = durationSeconds("INTERPRETER_JOB_POLL_SECONDS", 2)
 	if err != nil {
 		return Config{}, err
 	}

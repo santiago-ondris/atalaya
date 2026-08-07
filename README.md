@@ -58,3 +58,11 @@ curl http://localhost:8080/internal/events
 
 El poller queda desactivado de forma explícita si el token está vacío, por lo que
 el entorno local también puede ejecutarse sin credenciales.
+
+## Interpretar eventos
+
+Completar `OPENROUTER_API_KEY` en `.env`. Cada evento importado crea un job durable;
+Watchman lo procesa automáticamente y el resultado aparece en
+`GET /internal/events/{id}`. `OPENROUTER_MODEL` permite cambiar el modelo sin tocar
+el código. La guía y el comportamiento ante fallos están documentados en
+`docs/sprints/sprint-02-openrouter-walkthrough.md`.

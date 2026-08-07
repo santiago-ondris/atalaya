@@ -45,6 +45,9 @@ services:
       SENTRY_ORG_SLUG: ${SENTRY_ORG_SLUG:-}
       SENTRY_PROJECT_SLUG: ${SENTRY_PROJECT_SLUG:-}
       SENTRY_AUTH_TOKEN: ${SENTRY_AUTH_TOKEN:-}
+      INTERPRETER_URL: http://interpreter:8000
+      INTERPRETER_TIMEOUT_SECONDS: ${INTERPRETER_TIMEOUT_SECONDS:-30}
+      INTERPRETER_JOB_POLL_SECONDS: ${INTERPRETER_JOB_POLL_SECONDS:-2}
     ports:
       - "8080:8080"
     depends_on:
@@ -52,6 +55,8 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+      interpreter:
+        condition: service_started
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/ready"]
       interval: 5s
@@ -63,6 +68,11 @@ services:
       context: ./apps/interpreter
     environment:
       ATALAYA_ENVIRONMENT: development
+      ATALAYA_OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      ATALAYA_OPENROUTER_MODEL: ${OPENROUTER_MODEL:-openai/gpt-4.1-mini}
+      ATALAYA_OPENROUTER_TIMEOUT_SECONDS: ${OPENROUTER_TIMEOUT_SECONDS:-20}
+      ATALAYA_OPENROUTER_MAX_RETRIES: ${OPENROUTER_MAX_RETRIES:-2}
+      ATALAYA_OPENROUTER_MAX_OUTPUT_TOKENS: ${OPENROUTER_MAX_OUTPUT_TOKENS:-900}
     ports:
       - "8000:8000"
     healthcheck:
@@ -70,7 +80,7 @@ services:
         - CMD
         - python
         - -c
-        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/ready')"
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
       interval: 5s
       timeout: 3s
       retries: 10

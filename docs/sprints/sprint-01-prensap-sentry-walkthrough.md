@@ -1,8 +1,8 @@
 # Sprint 1 — Primer evento de Prensap desde Sentry
 
 - Fecha: 2026-08-07
-- Estado de implementación: completado con fixtures
-- Validación controlada contra Sentry: pendiente de credenciales locales
+- Estado de implementación: completado
+- Validación controlada contra Sentry: completada el 2026-08-07
 
 ## Resultado
 
@@ -69,6 +69,13 @@ poller/checkpoint sin red real. `go test ./...` y `go vet ./...` deben pasar.
 La llamada real no forma parte del test automático para evitar colocar secretos o
 depender de Sentry en CI. Queda como prueba controlada local una vez provistas las
 variables del paso anterior.
+
+## Validación real realizada
+
+La prueba real detectó que el endpoint de eventos de Sentry devolvía cero resultados al usar
+`query=event.type:error`, aunque el payload sin filtro identificaba correctamente esos eventos
+con `type=error`. El adapter ahora consulta el feed sin ese filtro incompatible y descarta del
+lado de Atalaya cualquier evento cuyo tipo no sea `error`.
 
 ## Deuda y siguiente paso
 

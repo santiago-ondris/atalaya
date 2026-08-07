@@ -13,6 +13,7 @@ import (
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/config"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/database"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/httpserver"
+	"github.com/santiago-ondris/atalaya/apps/watchman/internal/interpreter"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/poller"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/sentry"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/store"
@@ -39,6 +40,9 @@ func main() {
 	defer pool.Close()
 
 	postgresStore := store.NewPostgres(pool)
+	interpreterClient := interpreter.NewClient(cfg.Interpreter.URL, cfg.Interpreter.Timeout, nil)
+	go interpreter.NewWorker(postgresStore, interpreterClient, cfg.Interpreter.WorkerID, cfg.Interpreter.PollInterval, logger).Run(ctx)
+	logger.Info("interpretation worker enabled", "interpreter_url", cfg.Interpreter.URL)
 	if cfg.Sentry.Enabled() {
 		integrationID, err := postgresStore.EnsureSentryIntegration(ctx, "prensap", cfg.Sentry.OrgSlug, cfg.Sentry.ProjectSlug)
 		if err != nil {
