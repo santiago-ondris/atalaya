@@ -67,3 +67,37 @@ type Interpretation struct {
 	EstimatedCostUSD *float64   `json:"estimated_cost_usd"`
 	LatencyMS        int        `json:"latency_ms"`
 }
+
+func (interpretation Interpretation) AlertEligible() bool {
+	if interpretation.Severity == "critical" || interpretation.Severity == "high" {
+		return true
+	}
+	return interpretation.Severity == "medium" && interpretation.Actionable
+}
+
+type NotificationJob struct {
+	ID               string
+	EventID          string
+	Kind             string
+	Application      string
+	Source           string
+	SourceEventID    string
+	Environment      string
+	ErrorType        string
+	Release          string
+	Summary          string
+	Explanation      string
+	Severity         string
+	Actionable       bool
+	SuggestedActions []string
+	OccurrenceCount  int
+	FirstOccurredAt  time.Time
+	LastOccurredAt   time.Time
+	Attempts         int
+	MaxAttempts      int
+}
+
+type DeliveryResult struct {
+	MessageID  int64
+	HTTPStatus int
+}

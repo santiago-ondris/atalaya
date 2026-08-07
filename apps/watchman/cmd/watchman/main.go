@@ -14,9 +14,11 @@ import (
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/database"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/httpserver"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/interpreter"
+	"github.com/santiago-ondris/atalaya/apps/watchman/internal/notification"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/poller"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/sentry"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/store"
+	"github.com/santiago-ondris/atalaya/apps/watchman/internal/telegram"
 )
 
 func main() {
@@ -41,8 +43,19 @@ func main() {
 
 	postgresStore := store.NewPostgres(pool)
 	interpreterClient := interpreter.NewClient(cfg.Interpreter.URL, cfg.Interpreter.Timeout, nil)
-	go interpreter.NewWorker(postgresStore, interpreterClient, cfg.Interpreter.WorkerID, cfg.Interpreter.PollInterval, logger).Run(ctx)
+	go interpreter.NewWorker(postgresStore, interpreterClient, cfg.Interpreter.WorkerID, cfg.Interpreter.PollInterval,
+		cfg.Telegram.DeduplicationWindow, cfg.Telegram.InterpreterCooldown, logger).Run(ctx)
 	logger.Info("interpretation worker enabled", "interpreter_url", cfg.Interpreter.URL)
+	if cfg.Telegram.Enabled() {
+		telegramClient := telegram.NewClient(cfg.Telegram.BotToken, cfg.Telegram.ChatID, cfg.Telegram.Timeout, nil)
+		links := notification.Links{AtalayaBaseURL: cfg.Telegram.AtalayaPublicURL,
+			SentryBaseURL: cfg.Sentry.BaseURL, SentryOrganization: cfg.Sentry.OrgSlug}
+		go notification.NewWorker(postgresStore, telegramClient, cfg.Telegram.WorkerID,
+			cfg.Telegram.PollInterval, cfg.Telegram.RateLimitWindow, cfg.Telegram.RateLimitPerApp, links, logger).Run(ctx)
+		logger.Info("Telegram notification worker enabled")
+	} else {
+		logger.Warn("Telegram notifications disabled", "reason", "TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are not configured")
+	}
 	if cfg.Sentry.Enabled() {
 		integrationID, err := postgresStore.EnsureSentryIntegration(ctx, "prensap", cfg.Sentry.OrgSlug, cfg.Sentry.ProjectSlug)
 		if err != nil {

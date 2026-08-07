@@ -7,9 +7,12 @@ applications
     └── integrations
           ├── source_checkpoints
           └── error_groups
-                └── error_events
-                      └── interpretation_jobs
-                            └── interpretations
+                ├── error_events
+                │     └── interpretation_jobs
+                │           └── interpretations
+                └── alert_windows
+                      └── notification_jobs
+                            └── notification_delivery_attempts
 ```
 
 ## Decisiones importantes
@@ -38,12 +41,20 @@ Los jobs pendientes se ordenan por `available_at` y `created_at`. Un worker los
 reclamará dentro de una transacción usando `FOR UPDATE SKIP LOCKED`, marcará
 `processing` e identificará su lease mediante `locked_at` y `locked_by`.
 
-El mecanismo de recuperación de leases vencidos se implementará junto con el
-worker y tendrá un timeout configurable.
+Los workers recuperan leases `processing` con más de cinco minutos. Tanto las
+interpretaciones como las notificaciones conservan su contador de intentos,
+último error y próximo instante disponible.
+
+### Ventanas y entregas
+
+`alert_windows` representa una ventana de deduplicación operativa para un grupo.
+Mantiene el primer y último instante y el contador que alimenta el mensaje
+consolidado. `notification_jobs` separa la decisión de alertar de la entrega a
+Telegram. `notification_delivery_attempts` conserva cada resultado sin guardar el
+token del bot ni otro secreto.
 
 ### Costos
 
 Los costos usan `numeric`, no punto flotante. `NULL` significa que el proveedor no
 dio información suficiente para estimarlos; cero significa costo conocido igual a
 cero.
-

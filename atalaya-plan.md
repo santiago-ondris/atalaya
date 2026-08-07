@@ -328,6 +328,8 @@ Alcance:
 SPRINT 2 LISTO - INFORMACION EN docs/sprints/sprint-02-openrouter-walkthrough.md
  
 ### Sprint 3 — Telegram, deduplicación y resiliencia
+
+**Estado:** completado el 2026-08-07 con entrega controlada al chat privado de Telegram.
  
 **Objetivo:** convertir el pipeline en una herramienta operativa que alerte sin generar ruido.
  
@@ -345,6 +347,8 @@ Alcance:
 **Demo:** múltiples ocurrencias equivalentes generan una alerta agrupada, con contador, interpretación y trazabilidad.
  
 **Hito:** al finalizar este sprint existe un MVP operativo real para Prensap.
+
+SPRINT 3 LISTO - INFORMACION EN docs/sprints/sprint-03-telegram-walkthrough.md
  
 ### Sprint 4 — Las tres aplicaciones Sentry
  
@@ -353,7 +357,7 @@ Alcance:
 Alcance:
  
 - Modelar aplicaciones e integraciones configurables.
-- Incorporar proyectos/organizaciones de Farmami y Wheels House.
+- Incorporar proyectos de Farmami y Wheels House. (pertenecen a la misma organizacion en Sentry)
 - Mantener checkpoints independientes por integración.
 - Aislar fallos para que una fuente caída no bloquee las demás.
 - Añadir filtros y políticas por aplicación.

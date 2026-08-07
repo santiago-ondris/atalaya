@@ -12,8 +12,8 @@ import (
 
 type Store interface {
 	ClaimInterpretationJob(context.Context, string) (domain.InterpretationJob, error)
-	CompleteInterpretation(context.Context, domain.InterpretationJob, domain.Interpretation) error
-	FailInterpretationJob(context.Context, domain.InterpretationJob, error, bool) error
+	CompleteInterpretation(context.Context, domain.InterpretationJob, domain.Interpretation, time.Duration) error
+	FailInterpretationJob(context.Context, domain.InterpretationJob, error, bool, time.Duration) error
 }
 
 type Interpreter interface {
@@ -21,15 +21,17 @@ type Interpreter interface {
 }
 
 type Worker struct {
-	store    Store
-	client   Interpreter
-	id       string
-	interval time.Duration
-	logger   *slog.Logger
+	store               Store
+	client              Interpreter
+	id                  string
+	interval            time.Duration
+	logger              *slog.Logger
+	deduplicationWindow time.Duration
+	alertCooldown       time.Duration
 }
 
-func NewWorker(store Store, client Interpreter, id string, interval time.Duration, logger *slog.Logger) *Worker {
-	return &Worker{store: store, client: client, id: id, interval: interval, logger: logger}
+func NewWorker(store Store, client Interpreter, id string, interval, deduplicationWindow, alertCooldown time.Duration, logger *slog.Logger) *Worker {
+	return &Worker{store: store, client: client, id: id, interval: interval, deduplicationWindow: deduplicationWindow, alertCooldown: alertCooldown, logger: logger}
 }
 
 func (worker *Worker) Run(ctx context.Context) {
@@ -58,15 +60,15 @@ func (worker *Worker) processOne(ctx context.Context) {
 	if err != nil {
 		var providerErr *Error
 		retryable := errors.As(err, &providerErr) && providerErr.Retryable
-		if failErr := worker.store.FailInterpretationJob(ctx, job, err, retryable); failErr != nil {
+		if failErr := worker.store.FailInterpretationJob(ctx, job, err, retryable, worker.alertCooldown); failErr != nil {
 			worker.logger.Error("failed to update interpretation job", "job_id", job.ID, "error", failErr)
 		}
 		worker.logger.Warn("interpretation failed", "job_id", job.ID, "attempt", job.Attempts, "retryable", retryable, "error", err)
 		return
 	}
-	if err := worker.store.CompleteInterpretation(ctx, job, result); err != nil {
+	if err := worker.store.CompleteInterpretation(ctx, job, result, worker.deduplicationWindow); err != nil {
 		worker.logger.Error("failed to persist interpretation", "job_id", job.ID, "error", err)
-		if failErr := worker.store.FailInterpretationJob(ctx, job, err, true); failErr != nil {
+		if failErr := worker.store.FailInterpretationJob(ctx, job, err, true, worker.alertCooldown); failErr != nil {
 			worker.logger.Error("failed to release interpretation job", "job_id", job.ID, "error", failErr)
 		}
 		return

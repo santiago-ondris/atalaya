@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -156,7 +157,7 @@ func (store *Postgres) ClaimInterpretationJob(ctx context.Context, workerID stri
 	return job, nil
 }
 
-func (store *Postgres) CompleteInterpretation(ctx context.Context, job domain.InterpretationJob, result domain.Interpretation) error {
+func (store *Postgres) CompleteInterpretation(ctx context.Context, job domain.InterpretationJob, result domain.Interpretation, deduplicationWindow time.Duration) error {
 	actions, err := json.Marshal(result.SuggestedActions)
 	if err != nil {
 		return err
@@ -166,13 +167,17 @@ func (store *Postgres) CompleteInterpretation(ctx context.Context, job domain.In
 		return err
 	}
 	defer tx.Rollback(ctx)
-	_, err = tx.Exec(ctx, `INSERT INTO interpretations
+	var interpretationID uuid.UUID
+	err = tx.QueryRow(ctx, `INSERT INTO interpretations
 		(job_id,error_event_id,summary,explanation,severity,actionable,suggested_actions,model,prompt_version,input_tokens,output_tokens,total_tokens,estimated_cost_usd,latency_ms)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`, job.ID, job.EventID, result.Summary,
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING id`, job.ID, job.EventID, result.Summary,
 		result.Explanation, result.Severity, result.Actionable, actions, result.Model, result.PromptVersion,
-		result.Usage.InputTokens, result.Usage.OutputTokens, result.Usage.TotalTokens, result.EstimatedCostUSD, result.LatencyMS)
+		result.Usage.InputTokens, result.Usage.OutputTokens, result.Usage.TotalTokens, result.EstimatedCostUSD, result.LatencyMS).Scan(&interpretationID)
 	if err != nil {
 		return fmt.Errorf("insert interpretation: %w", err)
+	}
+	if err := enqueueEventAlert(ctx, tx, job, interpretationID, deduplicationWindow, result.AlertEligible()); err != nil {
+		return err
 	}
 	if _, err := tx.Exec(ctx, `UPDATE interpretation_jobs SET status='completed',completed_at=now(),locked_at=NULL,locked_by=NULL,last_error=NULL,updated_at=now() WHERE id=$1`, job.ID); err != nil {
 		return err
@@ -180,7 +185,50 @@ func (store *Postgres) CompleteInterpretation(ctx context.Context, job domain.In
 	return tx.Commit(ctx)
 }
 
-func (store *Postgres) FailInterpretationJob(ctx context.Context, job domain.InterpretationJob, cause error, retryable bool) error {
+func enqueueEventAlert(ctx context.Context, tx pgx.Tx, job domain.InterpretationJob, interpretationID uuid.UUID, window time.Duration, eligible bool) error {
+	var groupID uuid.UUID
+	if err := tx.QueryRow(ctx, `SELECT error_group_id FROM error_events WHERE id=$1`, job.EventID).Scan(&groupID); err != nil {
+		return fmt.Errorf("load alert group: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended($1,0))`, groupID.String()); err != nil {
+		return fmt.Errorf("lock alert group: %w", err)
+	}
+	var windowID uuid.UUID
+	err := tx.QueryRow(ctx, `SELECT id FROM alert_windows
+		WHERE error_group_id=$1 AND closes_at > now()
+		ORDER BY closes_at DESC LIMIT 1 FOR UPDATE`, groupID).Scan(&windowID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		if !eligible {
+			return nil
+		}
+		err = tx.QueryRow(ctx, `INSERT INTO alert_windows
+			(error_group_id,first_interpretation_id,closes_at,first_occurred_at,last_occurred_at)
+			VALUES ($1,$2,now()+$3::interval,$4,$4) RETURNING id`,
+			groupID, interpretationID, window.String(), job.OccurredAt).Scan(&windowID)
+		if err != nil {
+			return fmt.Errorf("create alert window: %w", err)
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO notification_jobs (kind,alert_window_id) VALUES ('event_alert',$1)`, windowID); err != nil {
+			return fmt.Errorf("enqueue event alert: %w", err)
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO notification_jobs (kind,alert_window_id,available_at)
+			SELECT 'group_summary',id,closes_at FROM alert_windows WHERE id=$1`, windowID); err != nil {
+			return fmt.Errorf("enqueue group summary: %w", err)
+		}
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("find alert window: %w", err)
+	}
+	_, err = tx.Exec(ctx, `UPDATE alert_windows SET occurrence_count=occurrence_count+1,
+		last_occurred_at=GREATEST(last_occurred_at,$2),updated_at=now() WHERE id=$1`, windowID, job.OccurredAt)
+	if err != nil {
+		return fmt.Errorf("update alert window: %w", err)
+	}
+	return nil
+}
+
+func (store *Postgres) FailInterpretationJob(ctx context.Context, job domain.InterpretationJob, cause error, retryable bool, alertCooldown time.Duration) error {
 	status := "failed"
 	availableAt := time.Now()
 	if retryable && job.Attempts < job.MaxAttempts {
@@ -188,8 +236,115 @@ func (store *Postgres) FailInterpretationJob(ctx context.Context, job domain.Int
 		delay := time.Minute * time.Duration(1<<(job.Attempts-1))
 		availableAt = availableAt.Add(delay)
 	}
-	_, err := store.pool.Exec(ctx, `UPDATE interpretation_jobs SET status=$2,available_at=$3,locked_at=NULL,locked_by=NULL,last_error=$4,updated_at=now() WHERE id=$1`, job.ID, status, availableAt, cause.Error())
-	return err
+	tx, err := store.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, `UPDATE interpretation_jobs SET status=$2,available_at=$3,locked_at=NULL,locked_by=NULL,last_error=$4,updated_at=now() WHERE id=$1`, job.ID, status, availableAt, cause.Error()); err != nil {
+		return err
+	}
+	if status == "failed" {
+		bucket := time.Now().UTC().Truncate(alertCooldown).Format(time.RFC3339)
+		key := "interpreter-degraded:" + bucket
+		if _, err := tx.Exec(ctx, `INSERT INTO notification_jobs (kind,deduplication_key)
+			VALUES ('interpreter_degraded',$1) ON CONFLICT DO NOTHING`, key); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
+
+func (store *Postgres) ClaimNotificationJob(ctx context.Context, workerID string, rateWindow time.Duration, rateLimit int) (domain.NotificationJob, error) {
+	if _, err := store.pool.Exec(ctx, `UPDATE notification_jobs j SET status='skipped',completed_at=now(),updated_at=now()
+		FROM alert_windows w WHERE j.alert_window_id=w.id AND j.kind='group_summary' AND j.status='pending'
+		AND j.available_at <= now() AND w.occurrence_count=1`); err != nil {
+		return domain.NotificationJob{}, err
+	}
+	tx, err := store.pool.Begin(ctx)
+	if err != nil {
+		return domain.NotificationJob{}, err
+	}
+	defer tx.Rollback(ctx)
+	var job domain.NotificationJob
+	var actions []byte
+	err = tx.QueryRow(ctx, `SELECT j.id,COALESCE(e.id::text,''),j.kind,COALESCE(a.slug,'atalaya'),COALESCE(src.source,'internal'),
+		COALESCE(e.source_event_id,''),COALESCE(g.environment,''),COALESCE(g.error_type,''),COALESCE(e.release,''),
+		COALESCE(i.summary,'Interpreter degradado'),COALESCE(i.explanation,'Una interpretación agotó sus reintentos. Los eventos siguen almacenándose.'),
+		COALESCE(i.severity,'high'),COALESCE(i.actionable,true),COALESCE(i.suggested_actions,'["Revisar los logs del interpreter y OpenRouter"]'::jsonb),
+		COALESCE(w.occurrence_count,1),COALESCE(w.first_occurred_at,j.created_at),COALESCE(w.last_occurred_at,j.created_at),j.attempts+1,j.max_attempts
+		FROM notification_jobs j
+		LEFT JOIN alert_windows w ON w.id=j.alert_window_id
+		LEFT JOIN interpretations i ON i.id=w.first_interpretation_id
+		LEFT JOIN error_events e ON e.id=i.error_event_id
+		LEFT JOIN error_groups g ON g.id=e.error_group_id
+		LEFT JOIN integrations src ON src.id=g.integration_id
+		LEFT JOIN applications a ON a.id=src.application_id
+		WHERE ((j.status='pending' AND j.available_at <= now()) OR (j.status='processing' AND j.locked_at < now()-interval '5 minutes'))
+		AND (j.kind <> 'event_alert' OR (SELECT count(*) FROM notification_delivery_attempts da
+			JOIN notification_jobs sent_job ON sent_job.id=da.notification_job_id
+			JOIN alert_windows sent_window ON sent_window.id=sent_job.alert_window_id
+			JOIN error_groups sent_group ON sent_group.id=sent_window.error_group_id
+			JOIN integrations sent_source ON sent_source.id=sent_group.integration_id
+			WHERE da.outcome='sent' AND sent_job.kind='event_alert' AND sent_source.application_id=src.application_id
+			AND da.finished_at > now()-$1::interval) < $2)
+		ORDER BY j.available_at,j.created_at FOR UPDATE OF j SKIP LOCKED LIMIT 1`, rateWindow.String(), rateLimit).Scan(
+		&job.ID, &job.EventID, &job.Kind, &job.Application, &job.Source, &job.SourceEventID, &job.Environment, &job.ErrorType, &job.Release,
+		&job.Summary, &job.Explanation, &job.Severity, &job.Actionable, &actions, &job.OccurrenceCount,
+		&job.FirstOccurredAt, &job.LastOccurredAt, &job.Attempts, &job.MaxAttempts)
+	if err != nil {
+		return domain.NotificationJob{}, err
+	}
+	if err := json.Unmarshal(actions, &job.SuggestedActions); err != nil {
+		return domain.NotificationJob{}, err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE notification_jobs SET status='processing',attempts=$3,locked_at=now(),locked_by=$2,updated_at=now() WHERE id=$1`, job.ID, workerID, job.Attempts); err != nil {
+		return domain.NotificationJob{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.NotificationJob{}, err
+	}
+	return job, nil
+}
+
+func (store *Postgres) CompleteNotification(ctx context.Context, job domain.NotificationJob, started time.Time, result domain.DeliveryResult) error {
+	tx, err := store.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, `INSERT INTO notification_delivery_attempts
+		(notification_job_id,attempt_number,started_at,outcome,http_status,telegram_message_id)
+		VALUES ($1,$2,$3,'sent',$4,$5)`, job.ID, job.Attempts, started, result.HTTPStatus, result.MessageID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE notification_jobs SET status='completed',completed_at=now(),locked_at=NULL,locked_by=NULL,last_error=NULL,updated_at=now() WHERE id=$1`, job.ID); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func (store *Postgres) FailNotification(ctx context.Context, job domain.NotificationJob, started time.Time, cause error, retryable bool, httpStatus int) error {
+	status, outcome := "failed", "permanent_failure"
+	availableAt := time.Now()
+	if retryable && job.Attempts < job.MaxAttempts {
+		status, outcome = "pending", "retryable_failure"
+		availableAt = availableAt.Add(time.Minute * time.Duration(1<<(job.Attempts-1)))
+	}
+	tx, err := store.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, `INSERT INTO notification_delivery_attempts
+		(notification_job_id,attempt_number,started_at,outcome,http_status,error_class,error_message)
+		VALUES ($1,$2,$3,$4,NULLIF($5,0),$6,$7)`, job.ID, job.Attempts, started, outcome, httpStatus, fmt.Sprintf("%T", cause), cause.Error()); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE notification_jobs SET status=$2,available_at=$3,locked_at=NULL,locked_by=NULL,last_error=$4,updated_at=now() WHERE id=$1`, job.ID, status, availableAt, cause.Error()); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 type EventSummary struct {
