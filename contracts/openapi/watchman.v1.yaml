@@ -1,0 +1,68 @@
+openapi: 3.1.0
+info:
+  title: Atalaya Watchman API
+  version: 1.0.0
+  description: API privada consumida por el Command Center. La sesión viaja en una cookie HttpOnly.
+servers:
+  - url: /api/v1
+paths:
+  /session:
+    post:
+      summary: Iniciar sesión de usuario único
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties: { password: { type: string, format: password } }
+      responses:
+        '200': { description: Sesión creada; devuelve cookie HttpOnly }
+        '401': { description: Credenciales inválidas }
+    get:
+      summary: Validar la sesión actual
+      responses:
+        '200': { description: Sesión válida }
+        '401': { description: Sin sesión }
+    delete:
+      summary: Revocar la sesión actual
+      responses:
+        '204': { description: Sesión revocada }
+  /overview:
+    get:
+      summary: Obtener estado general, integraciones y eventos recientes
+      security: [{ cookieAuth: [] }]
+      responses: { '200': { description: Overview operativo } }
+  /events:
+    get:
+      summary: Listar eventos con filtros y paginación
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - { name: application, in: query, schema: { type: string } }
+        - { name: severity, in: query, schema: { enum: [critical, high, medium, low, pending] } }
+        - { name: state, in: query, schema: { enum: [actionable, noise, pending] } }
+        - { name: period, in: query, schema: { type: string, examples: [24h, 168h] } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0 } }
+      responses: { '200': { description: Página de eventos } }
+  /events/{id}:
+    get:
+      summary: Obtener evento, interpretación y detalle técnico
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Detalle del evento }
+        '404': { description: Evento inexistente }
+  /integrations:
+    get:
+      summary: Obtener salud de fuentes y checkpoints
+      security: [{ cookieAuth: [] }]
+      responses: { '200': { description: Integraciones operativas } }
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: atalaya_session

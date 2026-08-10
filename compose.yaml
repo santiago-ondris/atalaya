@@ -38,6 +38,9 @@ services:
       context: ./apps/watchman
     environment:
       ATALAYA_ENV: development
+      ATALAYA_ADMIN_PASSWORD_HASH: ${ATALAYA_ADMIN_PASSWORD_HASH:-$$argon2id$$v=19$$m=65536,t=3,p=2$$YXRhbGF5YS1kZXYtc2FsdA$$Ixko1/mnbcEDH1CiWYhtyGiUELM98O68mONv/YEIFo0}
+      ATALAYA_COOKIE_SECURE: "false"
+      ATALAYA_SESSION_DURATION_SECONDS: ${ATALAYA_SESSION_DURATION_SECONDS:-86400}
       HTTP_ADDRESS: :8080
       DATABASE_URL: postgres://atalaya:atalaya_local@postgres:5432/atalaya?sslmode=disable
       POLL_INTERVAL_SECONDS: ${POLL_INTERVAL_SECONDS:-120}

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/santiago-ondris/atalaya/apps/watchman/internal/auth"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/store"
 )
 
@@ -19,6 +20,9 @@ type stubDatabase struct{ err error }
 func (database stubDatabase) Ping(context.Context) error { return database.err }
 func (database stubDatabase) ListEvents(context.Context, store.EventFilter) ([]store.EventSummary, error) {
 	return nil, database.err
+}
+func (database stubDatabase) ListEventPage(context.Context, store.EventFilter) (store.EventPage, error) {
+	return store.EventPage{}, database.err
 }
 func (database stubDatabase) ListIntegrations(context.Context) ([]store.IntegrationStatus, error) {
 	return nil, database.err
@@ -83,6 +87,7 @@ func TestListEventsAcceptsApplicationAndComponentFilters(t *testing.T) {
 	server := newTestServer(database)
 	response := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/internal/events?limit=25&application=farmami&component=frontend", nil)
+	request.AddCookie(&http.Cookie{Name: sessionCookie, Value: "test-token"})
 	server.httpServer.Handler.ServeHTTP(response, request)
 	if response.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", response.Code)
@@ -96,6 +101,7 @@ func TestListEventsRejectsInvalidFilter(t *testing.T) {
 	server := newTestServer(stubDatabase{})
 	response := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/internal/events?application=not-valid", nil)
+	request.AddCookie(&http.Cookie{Name: sessionCookie, Value: "test-token"})
 	server.httpServer.Handler.ServeHTTP(response, request)
 	if response.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", response.Code)
@@ -104,5 +110,13 @@ func TestListEventsRejectsInvalidFilter(t *testing.T) {
 
 func newTestServer(database Database) *Server {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	return New(":0", database, logger, time.Second)
+	return New(":0", database, auth.New(testSessionStore{}, "$argon2id$v=19$m=65536,t=1,p=1$c2FsdA$WnJdFRKGLdUVZUvrlcIHxA", time.Hour), logger, time.Second, false)
 }
+
+type testSessionStore struct{}
+
+func (testSessionStore) CreateSession(context.Context, []byte, time.Time) error { return nil }
+func (testSessionStore) SessionValid(context.Context, []byte, time.Time) (bool, error) {
+	return true, nil
+}
+func (testSessionStore) RevokeSession(context.Context, []byte, time.Time) error { return nil }

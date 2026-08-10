@@ -17,6 +17,26 @@ type Postgres struct{ pool *pgxpool.Pool }
 
 func NewPostgres(pool *pgxpool.Pool) *Postgres { return &Postgres{pool: pool} }
 
+func (store *Postgres) CreateSession(ctx context.Context, tokenHash []byte, expiresAt time.Time) error {
+	_, err := store.pool.Exec(ctx, `INSERT INTO command_center_sessions (token_hash,expires_at) VALUES ($1,$2)`, tokenHash, expiresAt)
+	return err
+}
+
+func (store *Postgres) SessionValid(ctx context.Context, tokenHash []byte, now time.Time) (bool, error) {
+	var valid bool
+	err := store.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM command_center_sessions
+		WHERE token_hash=$1 AND revoked_at IS NULL AND expires_at>$2)`, tokenHash, now).Scan(&valid)
+	if err == nil && valid {
+		_, err = store.pool.Exec(ctx, `UPDATE command_center_sessions SET last_seen_at=$2 WHERE token_hash=$1`, tokenHash, now)
+	}
+	return valid, err
+}
+
+func (store *Postgres) RevokeSession(ctx context.Context, tokenHash []byte, now time.Time) error {
+	_, err := store.pool.Exec(ctx, `UPDATE command_center_sessions SET revoked_at=$2 WHERE token_hash=$1 AND revoked_at IS NULL`, tokenHash, now)
+	return err
+}
+
 type SentryIntegrationSpec struct {
 	Application, Component, DisplayName, Organization, Project string
 	Environments                                               []string
@@ -429,21 +449,33 @@ func (store *Postgres) FailNotification(ctx context.Context, job domain.Notifica
 }
 
 type EventSummary struct {
-	ID            string    `json:"id"`
-	SourceEventID string    `json:"source_event_id"`
-	Application   string    `json:"application"`
-	Component     string    `json:"component"`
-	Environment   string    `json:"environment"`
-	ErrorType     string    `json:"error_type"`
-	Message       string    `json:"message"`
-	OccurredAt    time.Time `json:"occurred_at"`
-	IngestedAt    time.Time `json:"ingested_at"`
+	ID              string    `json:"id"`
+	SourceEventID   string    `json:"source_event_id"`
+	Application     string    `json:"application"`
+	Component       string    `json:"component"`
+	Environment     string    `json:"environment"`
+	ErrorType       string    `json:"error_type"`
+	Message         string    `json:"message"`
+	OccurredAt      time.Time `json:"occurred_at"`
+	IngestedAt      time.Time `json:"ingested_at"`
+	Severity        string    `json:"severity"`
+	State           string    `json:"state"`
+	OccurrenceCount int64     `json:"occurrence_count"`
 }
 
 type EventFilter struct {
 	Limit       int
+	Offset      int
 	Application string
 	Component   string
+	Severity    string
+	State       string
+	Since       *time.Time
+}
+
+type EventPage struct {
+	Items []EventSummary `json:"items"`
+	Total int            `json:"total"`
 }
 
 type IntegrationStatus struct {
@@ -469,40 +501,87 @@ type EventDetail struct {
 	Release        string                 `json:"release,omitempty"`
 	Metadata       map[string]any         `json:"metadata"`
 	Interpretation *domain.Interpretation `json:"interpretation,omitempty"`
+	Occurrences    []EventOccurrence      `json:"occurrences"`
+}
+
+type EventOccurrence struct {
+	ID            string    `json:"id"`
+	SourceEventID string    `json:"source_event_id"`
+	OccurredAt    time.Time `json:"occurred_at"`
+	Message       string    `json:"message"`
 }
 
 func (store *Postgres) ListEvents(ctx context.Context, filter EventFilter) ([]EventSummary, error) {
-	query := `SELECT e.id,e.source_event_id,a.slug,i.component,g.environment,e.error_type,e.message,e.occurred_at,e.ingested_at
-		FROM error_events e JOIN error_groups g ON g.id=e.error_group_id JOIN integrations i ON i.id=e.integration_id JOIN applications a ON a.id=i.application_id
-		WHERE ($2='' OR a.slug=$2) AND ($3='' OR i.component=$3)
-		ORDER BY e.occurred_at DESC LIMIT $1`
-	rows, err := store.pool.Query(ctx, query, filter.Limit, filter.Application, filter.Component)
+	page, err := store.ListEventPage(ctx, filter)
+	return page.Items, err
+}
+
+func (store *Postgres) ListEventPage(ctx context.Context, filter EventFilter) (EventPage, error) {
+	where := `($3='' OR a.slug=$3) AND ($4='' OR i.component=$4)
+		AND ($5='' OR COALESCE(latest.severity,'pending')=$5)
+		AND ($6='' OR CASE WHEN latest.severity IS NULL THEN 'pending' WHEN latest.actionable THEN 'actionable' ELSE 'noise' END=$6)
+		AND ($7::timestamptz IS NULL OR e.occurred_at >= $7)`
+	joins := `FROM error_events e JOIN error_groups g ON g.id=e.error_group_id JOIN integrations i ON i.id=e.integration_id JOIN applications a ON a.id=i.application_id
+		LEFT JOIN LATERAL (SELECT severity,actionable FROM interpretations it WHERE it.error_event_id=e.id ORDER BY it.created_at DESC LIMIT 1) latest ON true`
+	query := `SELECT e.id,e.source_event_id,a.slug,i.component,g.environment,e.error_type,e.message,e.occurred_at,e.ingested_at,
+		COALESCE(latest.severity,'pending'),CASE WHEN latest.severity IS NULL THEN 'pending' WHEN latest.actionable THEN 'actionable' ELSE 'noise' END,g.occurrence_count ` + joins + ` WHERE ` + where + `
+		ORDER BY e.occurred_at DESC LIMIT $1 OFFSET $2`
+	rows, err := store.pool.Query(ctx, query, filter.Limit, filter.Offset, filter.Application, filter.Component, filter.Severity, filter.State, filter.Since)
 	if err != nil {
-		return nil, err
+		return EventPage{}, err
 	}
 	defer rows.Close()
 	items := make([]EventSummary, 0)
 	for rows.Next() {
 		var item EventSummary
-		if err := rows.Scan(&item.ID, &item.SourceEventID, &item.Application, &item.Component, &item.Environment, &item.ErrorType, &item.Message, &item.OccurredAt, &item.IngestedAt); err != nil {
-			return nil, err
+		if err := rows.Scan(&item.ID, &item.SourceEventID, &item.Application, &item.Component, &item.Environment, &item.ErrorType, &item.Message, &item.OccurredAt, &item.IngestedAt, &item.Severity, &item.State, &item.OccurrenceCount); err != nil {
+			return EventPage{}, err
 		}
 		items = append(items, item)
 	}
-	return items, rows.Err()
+	if err := rows.Err(); err != nil {
+		return EventPage{}, err
+	}
+	var total int
+	countWhere := `($1='' OR a.slug=$1) AND ($2='' OR i.component=$2)
+		AND ($3='' OR COALESCE(latest.severity,'pending')=$3)
+		AND ($4='' OR CASE WHEN latest.severity IS NULL THEN 'pending' WHEN latest.actionable THEN 'actionable' ELSE 'noise' END=$4)
+		AND ($5::timestamptz IS NULL OR e.occurred_at >= $5)`
+	countQuery := `SELECT count(*) ` + joins + ` WHERE ` + countWhere
+	if err := store.pool.QueryRow(ctx, countQuery, filter.Application, filter.Component, filter.Severity, filter.State, filter.Since).Scan(&total); err != nil {
+		return EventPage{}, err
+	}
+	return EventPage{Items: items, Total: total}, nil
 }
 
 func (store *Postgres) Event(ctx context.Context, id string) (EventDetail, error) {
 	var item EventDetail
 	var metadata []byte
+	var groupID string
 	err := store.pool.QueryRow(ctx, `SELECT e.id,e.source_event_id,a.slug,i.component,g.environment,e.error_type,e.message,e.occurred_at,e.ingested_at,
-		g.fingerprint,COALESCE(e.stack_trace,''),COALESCE(e.release,''),e.metadata
+		g.fingerprint,COALESCE(e.stack_trace,''),COALESCE(e.release,''),e.metadata,g.id
 		FROM error_events e JOIN error_groups g ON g.id=e.error_group_id JOIN integrations i ON i.id=e.integration_id JOIN applications a ON a.id=i.application_id WHERE e.id=$1`, id).
-		Scan(&item.ID, &item.SourceEventID, &item.Application, &item.Component, &item.Environment, &item.ErrorType, &item.Message, &item.OccurredAt, &item.IngestedAt, &item.Fingerprint, &item.StackTrace, &item.Release, &metadata)
+		Scan(&item.ID, &item.SourceEventID, &item.Application, &item.Component, &item.Environment, &item.ErrorType, &item.Message, &item.OccurredAt, &item.IngestedAt, &item.Fingerprint, &item.StackTrace, &item.Release, &metadata, &groupID)
 	if err != nil {
 		return EventDetail{}, err
 	}
 	if err := json.Unmarshal(metadata, &item.Metadata); err != nil {
+		return EventDetail{}, err
+	}
+	rows, err := store.pool.Query(ctx, `SELECT id,source_event_id,occurred_at,message FROM error_events WHERE error_group_id=$1 ORDER BY occurred_at DESC LIMIT 50`, groupID)
+	if err != nil {
+		return EventDetail{}, err
+	}
+	defer rows.Close()
+	item.Occurrences = make([]EventOccurrence, 0)
+	for rows.Next() {
+		var occurrence EventOccurrence
+		if err := rows.Scan(&occurrence.ID, &occurrence.SourceEventID, &occurrence.OccurredAt, &occurrence.Message); err != nil {
+			return EventDetail{}, err
+		}
+		item.Occurrences = append(item.Occurrences, occurrence)
+	}
+	if err := rows.Err(); err != nil {
 		return EventDetail{}, err
 	}
 	var interpretation domain.Interpretation

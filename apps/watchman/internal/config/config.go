@@ -24,6 +24,13 @@ type Config struct {
 	Sentry              SentryConfig
 	ApplicationInsights ApplicationInsightsConfig
 	Telegram            TelegramConfig
+	Auth                AuthConfig
+}
+
+type AuthConfig struct {
+	PasswordHash    string
+	SessionDuration time.Duration
+	CookieSecure    bool
 }
 
 type ApplicationInsightsConfig struct {
@@ -133,6 +140,10 @@ func Load() (Config, error) {
 			WorkerID:         envOrDefault("TELEGRAM_WORKER_ID", "watchman-telegram-1"),
 			AtalayaPublicURL: envOrDefault("ATALAYA_PUBLIC_URL", ""),
 		},
+		Auth: AuthConfig{
+			PasswordHash: os.Getenv("ATALAYA_ADMIN_PASSWORD_HASH"),
+			CookieSecure: envOrDefault("ATALAYA_COOKIE_SECURE", "true") == "true",
+		},
 	}
 	var err error
 	cfg.PollInterval, err = durationSeconds("POLL_INTERVAL_SECONDS", 120)
@@ -174,6 +185,13 @@ func Load() (Config, error) {
 	cfg.Telegram.InterpreterCooldown, err = durationSeconds("TELEGRAM_INTERPRETER_ALERT_COOLDOWN_SECONDS", 1800)
 	if err != nil {
 		return Config{}, err
+	}
+	cfg.Auth.SessionDuration, err = durationSeconds("ATALAYA_SESSION_DURATION_SECONDS", 86400)
+	if err != nil {
+		return Config{}, err
+	}
+	if cfg.Auth.PasswordHash == "" {
+		return Config{}, errors.New("ATALAYA_ADMIN_PASSWORD_HASH is required")
 	}
 	if (cfg.Telegram.BotToken == "") != (cfg.Telegram.ChatID == "") {
 		return Config{}, errors.New("TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID must be configured together")

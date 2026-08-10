@@ -41,6 +41,7 @@ func TestLoadSentryCatalogRejectsDuplicateComponents(t *testing.T) {
 
 func TestLoadRejectsPartialAzureConfiguration(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://example")
+	t.Setenv("ATALAYA_ADMIN_PASSWORD_HASH", "test-only-hash")
 	t.Setenv("SENTRY_CATALOG_PATH", writeCatalog(t, `{"applications":[{"slug":"prensap","integrations":[{"component":"backend","display_name":"Backend","project":"prensap","environments":["production"]}]}]}`))
 	t.Setenv("AZURE_CLIENT_ID", "configured-without-the-other-required-values")
 	t.Setenv("AZURE_CLIENT_SECRET", "")

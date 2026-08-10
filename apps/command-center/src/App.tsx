@@ -1,45 +1,104 @@
+import { useEffect, useState } from 'react'
+import { api, type Overview } from './api'
+import { AppLayout, type View } from './components/layout/AppLayout'
+import { ErrorState, LoadingState } from './components/feedback/FeedbackState'
+import { LoginPage } from './features/auth/LoginPage'
+import { EventDetailPage } from './features/events/EventDetailPage'
+import { EventsPage } from './features/events/EventsPage'
+import { OverviewPage } from './features/overview/OverviewPage'
+import { SystemPage } from './features/system/SystemPage'
 import './App.css'
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
+  const [activeView, setActiveView] = useState<View>('overview')
+  const [overview, setOverview] = useState<Overview | null>(null)
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
+  const [overviewError, setOverviewError] = useState('')
+
+  useEffect(() => {
+    api
+      .session()
+      .then(() => setIsAuthenticated(true))
+      .catch(() => setIsAuthenticated(false))
+  }, [])
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+
+    api
+      .overview()
+      .then(setOverview)
+      .catch((error: Error) => {
+        if (error.message === 'unauthorized') {
+          setIsAuthenticated(false)
+          return
+        }
+
+        setOverviewError('No se pudo cargar el estado general.')
+      })
+  }, [isAuthenticated])
+
+  if (isAuthenticated === null) {
+    return <LoadingState />
+  }
+
+  if (!isAuthenticated) {
+    return <LoginPage onSuccess={() => setIsAuthenticated(true)} />
+  }
+
+  async function handleLogout() {
+    await api.logout()
+    setIsAuthenticated(false)
+  }
+
+  function handleNavigation(view: View) {
+    setActiveView(view)
+    setSelectedEventId(null)
+  }
+
+  function closeEventDetail() {
+    setSelectedEventId(null)
+    setActiveView('events')
+  }
+
   return (
-    <main>
-      <header>
-        <p className="eyebrow">ATLY / SYSTEM LOG</p>
-        <h1>Atalaya</h1>
-        <p className="lede">
-          El command center está listo para recibir su primera señal.
-        </p>
-      </header>
-
-      <section aria-labelledby="foundation-title">
-        <div className="section-heading">
-          <span>00</span>
-          <h2 id="foundation-title">Fundación del sistema</h2>
-        </div>
-
-        <div className="service-grid">
-          <article>
-            <span className="signal signal-ok" aria-label="Configurado" />
-            <p className="service-kind">Go</p>
-            <h3>Watchman</h3>
-            <p>API, reglas operativas y persistencia.</p>
-          </article>
-          <article>
-            <span className="signal signal-ok" aria-label="Configurado" />
-            <p className="service-kind">Python</p>
-            <h3>Interpreter</h3>
-            <p>Interpretación estructurada mediante LLM.</p>
-          </article>
-          <article>
-            <span className="signal signal-attention" aria-label="En construcción" />
-            <p className="service-kind">PostgreSQL</p>
-            <h3>Bitácora</h3>
-            <p>Eventos, jobs e historial operacional.</p>
-          </article>
-        </div>
-      </section>
-    </main>
+    <AppLayout view={activeView} onNavigate={handleNavigation} onLogout={handleLogout}>
+      {renderContent()}
+    </AppLayout>
   )
+
+  function renderContent() {
+    if (selectedEventId) {
+      return <EventDetailPage eventId={selectedEventId} onBack={closeEventDetail} />
+    }
+
+    if (activeView === 'events') {
+      return <EventsPage onSelectEvent={setSelectedEventId} />
+    }
+
+    if (activeView === 'system') {
+      return <SystemPage />
+    }
+
+    if (overviewError) {
+      return (
+        <main className="page">
+          <ErrorState message={overviewError} />
+        </main>
+      )
+    }
+
+    if (!overview) {
+      return (
+        <main className="page">
+          <LoadingState />
+        </main>
+      )
+    }
+
+    return <OverviewPage overview={overview} onSelectEvent={setSelectedEventId} />
+  }
 }
 
 export default App

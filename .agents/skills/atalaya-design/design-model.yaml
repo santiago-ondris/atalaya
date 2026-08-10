@@ -1,0 +1,158 @@
+name: "Atalaya"
+philosophy: "Una estación de vigilancia contemporánea construida con el lenguaje de una bitácora naval. La precisión operativa se apoya en papel, latón, retículas cartográficas y banderas de señal; la referencia histórica aporta carácter sin reducir la claridad del instrumento."
+primary_mode: "light"
+brand_domain: "observability command center / production operations"
+brand_type: "ui-rich"
+mono_for_code: true
+mono_for_metrics: true
+
+primitives:
+  colors:
+    neutral:
+      50: "#FAFAE4"
+      100: "#F1F0E8"
+      200: "#DEDCCF"
+      300: "#B9B7AA"
+      400: "#8B8A80"
+      500: "#6B6C65"
+      600: "#51534E"
+      700: "#393C38"
+      800: "#242824"
+      900: "#171B18"
+      950: "#0D100E"
+    brand:
+      50: "#EEF2FF"
+      100: "#DDE2FF"
+      200: "#BEC6F4"
+      300: "#979FDD"
+      400: "#7079C2"
+      500: "#4750A8"
+      600: "#3C4596"
+      700: "#313979"
+      800: "#272E60"
+      900: "#1D234A"
+      950: "#11152E"
+    green: { 50: "#E7F3ED", 500: "#005838", 900: "#003321" }
+    amber: { 50: "#FFF9CC", 500: "#FFE000", 900: "#574C00" }
+    red: { 50: "#FBE9E4", 500: "#C1432E", 900: "#642217" }
+    brass: { 50: "#F7F0E4", 500: "#BA8A40", 900: "#513915" }
+  spacing: [0, 2, 4, 8, 16, 24, 32, 48, 64, 96]
+  radii: [0, 2, 4, 6, 999]
+
+tokens:
+  colors:
+    light:
+      background: "{neutral.100}"
+      surface1: "{neutral.50}"
+      surface2: "{neutral.200}"
+      surface3: "{neutral.300}"
+      border: "{neutral.200}"
+      border_visible: "{brass.500}"
+      text1: "#000000"
+      text2: "{neutral.600}"
+      text3: "{neutral.500}"
+      text4: "{neutral.400}"
+      accent: "{brand.500}"
+      accent_subtle: "{brand.50}"
+    dark:
+      background: "{neutral.950}"
+      surface1: "{neutral.900}"
+      surface2: "{neutral.800}"
+      surface3: "{neutral.700}"
+      border: "{neutral.800}"
+      border_visible: "{brass.500}"
+      text1: "#FFFFFF"
+      text2: "{neutral.300}"
+      text3: "{neutral.400}"
+      text4: "{neutral.600}"
+      accent: "{brand.300}"
+      accent_subtle: "{brand.950}"
+    success: "{green.500}"
+    warning: "{amber.500}"
+    error: "{red.500}"
+    success_bg: { light: "{green.50}", dark: "{green.900}" }
+    warning_bg: { light: "{amber.50}", dark: "{amber.900}" }
+    error_bg: { light: "{red.50}", dark: "{red.900}" }
+  spacing: { 2xs: 2, xs: 4, sm: 8, md: 16, lg: 24, xl: 32, 2xl: 48, 3xl: 64, 4xl: 96 }
+  radii: { element: 2, control: 4, component: 6, container: 6, pill: 999 }
+  typography:
+    display: { family: "Instrument Serif", size: "64px", weight: 400, line_height: 0.95 }
+    heading: { family: "Instrument Serif", size: "36px", weight: 400, line_height: 1.05 }
+    subheading: { family: "Public Sans", size: "18px", weight: 600, line_height: 1.25 }
+    body: { family: "Public Sans", size: "15px", weight: 400, line_height: 1.5 }
+    body_sm: { family: "Public Sans", size: "13px", weight: 400, line_height: 1.45 }
+    caption: { family: "IBM Plex Mono", size: "12px", weight: 400, line_height: 1.35 }
+    label: { family: "IBM Plex Mono", size: "11px", weight: 600, line_height: 1.2, letter_spacing: "0.12em" }
+    mono: { family: "IBM Plex Mono", size: "12px", weight: 400 }
+  elevation:
+    strategy: "flat"
+    level_1: "none"
+    level_2: "0 8px 0 rgba(0, 0, 0, 0.10)"
+    level_3: "0 16px 40px rgba(0, 0, 0, 0.22)"
+  motion:
+    personality: "mechanical"
+    easing: "cubic-bezier(0.2, 0.8, 0.2, 1)"
+    duration_fast: "120ms"
+    duration_normal: "160ms"
+    duration_slow: "180ms"
+  hero_stage:
+    preset: "flat-blank"
+    observed_style:
+      description: "Carta operativa expresiva: retícula de coordenadas, rumbos trazados, marcas técnicas y banderas sobre una superficie de papel cálido. No hay objeto central; la composición cartográfica es el campo."
+      where_used: ["login", "entry hero"]
+    background:
+      medium: "pattern"
+      color_mode: "palette"
+      saturation: "muted"
+      light_source: "ambient"
+      falloff: "soft"
+      vignette: "off"
+      texture: "paper"
+      motion: "static"
+      intensity: "subtle"
+      safe_zone: "masked-for-text"
+      color_palette: ["#F1F0E8", "#FAFAE4", "#005838", "#BA8A40", "#4750A8"]
+    hero: { subject: "none" }
+    relation: { type: "flat", bleed: 0 }
+    disclaimer: "La composición se construye con CSS y SVG geométrico; no reutiliza cartas náuticas ni insignias propietarias."
+  iconography:
+    observed_style:
+      description: "Banderas geométricas propias para estados y glifos funcionales técnicos, precisos y de trazo fino."
+      stroke_weight: "regular (1.5px)"
+      corner_treatment: "soft terminals on hard geometry"
+      fill_style: "outline with selective solid status shapes"
+      form_language: "geometric with mild humanist touches"
+      visual_density: "balanced to detailed"
+    fallback_kit:
+      name: "Tabler Icons"
+      weight: "outline 1.5px"
+      match_score: "high"
+      match_reasoning: "Tabler coincide con el trazo de 1.5px, la geometría técnica y la densidad necesaria para observabilidad. Lucide es la segunda opción, pero su catálogo más pequeño y su simplificación visual pierden precisión en conceptos operativos."
+      cdn: "https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.41.1/dist/tabler-icons.min.css"
+      icon_class_prefix: "ti ti-"
+    disclaimer: "Tabler cubre la iconografía funcional; las banderas de señal son componentes propios de Atalaya."
+
+components:
+  button_primary: { source: "derived", background: "{brand.500}", color: "#FFFFFF", padding: "10px 16px", radius: 4, font_weight: 600 }
+  button_secondary: { source: "derived", background: "transparent", color: "{neutral.950}", border: "1px solid {brass.500}", radius: 4 }
+  card: { source: "observed", background: "{neutral.50}", border: "1px solid {neutral.200}", radius: 6, padding: 24 }
+  input: { source: "derived", background: "{neutral.50}", border: "1px solid {neutral.300}", focus: "{brand.500}", radius: 4, height: 40 }
+  data_row: { source: "derived", min_height: 48, divider: "1px solid {neutral.200}", selected: "{brand.50}" }
+  sidebar: { source: "derived", background: "{green.500}", color: "#FFFFFF", width: 240 }
+  status_flag: { source: "observed", shape: "rectangular maritime signal flag", radius: 0, border: "1px solid currentColor" }
+  tag: { source: "derived", height: 24, radius: 2, border: "1px solid currentColor" }
+  modal: { source: "derived", radius: 6, border: "1px solid {brass.500}" }
+
+app_screen:
+  archetype: "dashboard"
+  frame: "browser"
+  frame_params:
+    url: "atalaya.local/overview"
+    title: "Atalaya — Guardia de producción"
+  content_seed: "Overview operativo de Farmami, Wheels House, Prensap y Notizap con estado, actividad, eventos recientes e integraciones internas."
+  required_tokens_checklist:
+    - "text1, text2, text3, text4"
+    - "surface1, surface2, surface3, border, border_visible"
+    - "accent, accent_subtle, success, warning, error"
+    - "display, heading, subheading, body, body-sm, caption, label"
+    - "mono for timestamps, counts and identifiers"

@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	applicationinsights "github.com/santiago-ondris/atalaya/apps/watchman/internal/applicationinsights"
+	"github.com/santiago-ondris/atalaya/apps/watchman/internal/auth"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/config"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/database"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/domain"
@@ -108,7 +109,8 @@ func main() {
 		logger.Warn("Application Insights polling disabled", "reason", "Azure credentials and workspace are not configured")
 	}
 
-	server := httpserver.New(cfg.HTTPAddress, databaseWithQueries{Pool: pool, Postgres: postgresStore}, logger, cfg.ReadinessTimeout)
+	authService := auth.New(postgresStore, cfg.Auth.PasswordHash, cfg.Auth.SessionDuration)
+	server := httpserver.New(cfg.HTTPAddress, databaseWithQueries{Pool: pool, Postgres: postgresStore}, authService, logger, cfg.ReadinessTimeout, cfg.Auth.CookieSecure)
 	serverErrors := make(chan error, 1)
 	go func() {
 		logger.Info("watchman listening", "address", cfg.HTTPAddress, "environment", cfg.Environment)

@@ -393,6 +393,8 @@ SPRINT 5 LISTO - INFORMACION EN docs/sprints/sprint-05-application-insights-walk
 
  
 ### Sprint 6 — Command center privado
+
+**Estado:** completado el 2026-08-10. Ver `docs/sprints/sprint-06-command-center-walkthrough.md`.
  
 **Objetivo:** disponer de una interfaz segura para operar el sistema diariamente.
  

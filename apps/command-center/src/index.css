@@ -1,34 +1,57 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Instrument+Serif:ital@0;1&family=Public+Sans:wght@400;500;600&display=swap');
-
+@import url('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.41.1/dist/tabler-icons.min.css');
 :root {
-  --green: #005838;
-  --yellow: #ffe000;
-  --paper: #fafae4;
-  --brass: #8d652e;
-  --ink: #111111;
-  --muted: #575a54;
-  --border: #b9ac88;
+  --background: #f1f0e8;
+  --surface1: #fafae4;
+  --surface2: #dedccf;
+  --surface3: #b9b7aa;
+  --border: #dedccf;
+  --border-visible: #ba8a40;
+  --text1: #000;
+  --text2: #51534e;
+  --text3: #6b6c65;
+  --text4: #8b8a80;
+  --accent: #4750a8;
+  --accent-subtle: #eef2ff;
+  --success: #005838;
+  --success-bg: #e7f3ed;
+  --warning: #ffe000;
+  --warning-bg: #fff9cc;
+  --error: #c1432e;
+  --error-bg: #fbe9e4;
   --display: 'Instrument Serif', Georgia, serif;
-  --sans: 'Public Sans', Arial, sans-serif;
-  --mono: 'IBM Plex Mono', monospace;
-  color: var(--ink);
-  background: #f1f0e8;
-  font-family: var(--sans);
+  --body: 'Public Sans', Arial, sans-serif;
+  --mono: 'IBM Plex Mono', Consolas, monospace;
+  font-family: var(--body);
+  color: var(--text1);
+  background: var(--background);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }
-
 * {
   box-sizing: border-box;
 }
-
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background:
-    linear-gradient(rgba(0, 88, 56, 0.035) 1px, transparent 1px),
-    #f1f0e8;
-  background-size: 100% 32px;
+}
+button,
+input,
+select {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+h1,
+h2,
+h3,
+h4,
+p {
+  margin-top: 0;
 }
