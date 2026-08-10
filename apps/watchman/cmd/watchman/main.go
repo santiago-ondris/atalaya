@@ -44,29 +44,47 @@ func main() {
 	postgresStore := store.NewPostgres(pool)
 	interpreterClient := interpreter.NewClient(cfg.Interpreter.URL, cfg.Interpreter.Timeout, nil)
 	go interpreter.NewWorker(postgresStore, interpreterClient, cfg.Interpreter.WorkerID, cfg.Interpreter.PollInterval,
-		cfg.Telegram.DeduplicationWindow, cfg.Telegram.InterpreterCooldown, logger).Run(ctx)
+		cfg.Telegram.InterpreterCooldown, logger).Run(ctx)
 	logger.Info("interpretation worker enabled", "interpreter_url", cfg.Interpreter.URL)
 	if cfg.Telegram.Enabled() {
 		telegramClient := telegram.NewClient(cfg.Telegram.BotToken, cfg.Telegram.ChatID, cfg.Telegram.Timeout, nil)
 		links := notification.Links{AtalayaBaseURL: cfg.Telegram.AtalayaPublicURL,
 			SentryBaseURL: cfg.Sentry.BaseURL, SentryOrganization: cfg.Sentry.OrgSlug}
 		go notification.NewWorker(postgresStore, telegramClient, cfg.Telegram.WorkerID,
-			cfg.Telegram.PollInterval, cfg.Telegram.RateLimitWindow, cfg.Telegram.RateLimitPerApp, links, logger).Run(ctx)
+			cfg.Telegram.PollInterval, links, logger).Run(ctx)
 		logger.Info("Telegram notification worker enabled")
 	} else {
 		logger.Warn("Telegram notifications disabled", "reason", "TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are not configured")
 	}
 	if cfg.Sentry.Enabled() {
-		integrationID, err := postgresStore.EnsureSentryIntegration(ctx, "prensap", cfg.Sentry.OrgSlug, cfg.Sentry.ProjectSlug)
-		if err != nil {
-			logger.Error("failed to configure Prensap Sentry integration", "error", err)
-			os.Exit(1)
+		enabled := 0
+		requestGate := sentry.NewRequestGate()
+		for _, application := range cfg.Sentry.Applications {
+			for _, integration := range application.Integrations {
+				runtime, ensureErr := postgresStore.EnsureSentryIntegration(ctx, store.SentryIntegrationSpec{
+					Application: application.Slug, Component: integration.Component, DisplayName: integration.DisplayName,
+					Organization: cfg.Sentry.OrgSlug, Project: integration.Project, Environments: integration.Environments,
+					AlertPolicy: application.AlertPolicy,
+				})
+				if ensureErr != nil {
+					logger.Error("failed to configure Sentry integration", "application", application.Slug,
+						"component", integration.Component, "project", integration.Project, "error", ensureErr)
+					continue
+				}
+				sentryClient := sentry.NewClient(cfg.Sentry.BaseURL, cfg.Sentry.OrgSlug, integration.Project,
+					cfg.Sentry.AuthToken, integration.Environments, runtime.MonitoringStartedAt, requestGate, nil)
+				go poller.New(sentryClient, postgresStore, runtime.ID, application.Slug, integration.Component,
+					cfg.PollInterval, logger).Run(ctx)
+				enabled++
+				logger.Info("Sentry polling enabled", "application", application.Slug, "component", integration.Component,
+					"project", integration.Project, "environments", integration.Environments, "interval", cfg.PollInterval)
+			}
 		}
-		sentryClient := sentry.NewClient(cfg.Sentry.BaseURL, cfg.Sentry.OrgSlug, cfg.Sentry.ProjectSlug, cfg.Sentry.AuthToken, nil)
-		go poller.New(sentryClient, postgresStore, integrationID, cfg.PollInterval, logger).Run(ctx)
-		logger.Info("Prensap Sentry polling enabled", "interval", cfg.PollInterval)
+		if enabled == 0 {
+			logger.Warn("no Sentry pollers could be configured")
+		}
 	} else {
-		logger.Warn("Prensap Sentry polling disabled", "reason", "SENTRY_AUTH_TOKEN is not configured")
+		logger.Warn("Sentry polling disabled", "reason", "SENTRY_AUTH_TOKEN is not configured")
 	}
 
 	server := httpserver.New(cfg.HTTPAddress, databaseWithQueries{Pool: pool, Postgres: postgresStore}, logger, cfg.ReadinessTimeout)

@@ -351,6 +351,10 @@ Alcance:
 SPRINT 3 LISTO - INFORMACION EN docs/sprints/sprint-03-telegram-walkthrough.md
  
 ### Sprint 4 — Las tres aplicaciones Sentry
+
+**Estado:** completado el 2026-08-10. La validación final ocurrió con eventos reales:
+Atalaya los interpretó correctamente y entregó las alertas en lenguaje natural por
+Telegram.
  
 **Objetivo:** monitorear Farmami, Wheels House y Prensap reutilizando el mismo adapter.
  
@@ -363,6 +367,8 @@ Alcance:
 - Añadir filtros y políticas por aplicación.
 - Incorporar métricas de última ejecución y último éxito de cada poller.
 **Demo:** las tres aplicaciones son polleadas independientemente y producen eventos normalizados comparables.
+
+SPRINT 4 LISTO - INFORMACION EN docs/sprints/sprint-04-multi-sentry-walkthrough.md
  
 ### Sprint 5 — Notizap y Application Insights
  

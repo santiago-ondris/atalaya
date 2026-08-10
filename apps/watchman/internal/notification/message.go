@@ -20,9 +20,13 @@ func Format(job domain.NotificationJob, links Links) string {
 		return "⚠️ <b>Atalaya · INTERPRETER DEGRADADO</b>\n\n" +
 			escape(job.Explanation) + "\n\nLos eventos siguen almacenándose. Revisá los logs del interpreter y OpenRouter."
 	}
-	heading := severityIcon(job.Severity) + " <b>" + escape(displayName(job.Application)) + " · " + strings.ToUpper(escape(job.Severity)) + "</b>"
+	identity := escape(displayName(job.Application))
+	if job.Component != "" {
+		identity += " · " + escape(displayComponent(job.Component))
+	}
+	heading := severityIcon(job.Severity) + " <b>" + identity + " · " + strings.ToUpper(escape(job.Severity)) + "</b>"
 	if job.Kind == "group_summary" {
-		heading = "📍 <b>" + escape(displayName(job.Application)) + " · ACTUALIZACIÓN AGRUPADA</b>"
+		heading = "📍 <b>" + identity + " · ACTUALIZACIÓN AGRUPADA</b>"
 	}
 	lines := []string{heading, "", "<b>" + escape(job.ErrorType) + "</b>", escape(job.Summary), "", escape(job.Explanation), "",
 		fmt.Sprintf("Ocurrencias: <b>%d</b>", job.OccurrenceCount),
@@ -49,6 +53,15 @@ func Format(job domain.NotificationJob, links Links) string {
 		lines = append(lines, "", strings.Join(linkLines, " · "))
 	}
 	return strings.Join(lines, "\n")
+}
+func displayComponent(component string) string {
+	if component == "backend" {
+		return "Backend"
+	}
+	if component == "frontend" {
+		return "Frontend"
+	}
+	return strings.Title(strings.ReplaceAll(component, "_", " "))
 }
 
 func escape(value string) string { return html.EscapeString(value) }

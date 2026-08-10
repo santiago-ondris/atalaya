@@ -2,7 +2,8 @@ package domain
 
 import "testing"
 
-func TestInterpretationAlertEligible(t *testing.T) {
+func TestAlertPolicyEligibility(t *testing.T) {
+	policy := AlertPolicy{Enabled: true, AlwaysAlertSeverities: []string{"critical", "high"}, ActionableAlertSeverities: []string{"medium"}}
 	tests := []struct {
 		name       string
 		severity   string
@@ -17,10 +18,16 @@ func TestInterpretationAlertEligible(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got := (Interpretation{Severity: test.severity, Actionable: test.actionable}).AlertEligible()
+			got := policy.Eligible(Interpretation{Severity: test.severity, Actionable: test.actionable})
 			if got != test.want {
-				t.Fatalf("AlertEligible() = %v, want %v", got, test.want)
+				t.Fatalf("Eligible() = %v, want %v", got, test.want)
 			}
 		})
+	}
+}
+
+func TestDisabledAlertPolicy(t *testing.T) {
+	if (AlertPolicy{}).Eligible(Interpretation{Severity: "critical"}) {
+		t.Fatal("disabled policy must reject every interpretation")
 	}
 }

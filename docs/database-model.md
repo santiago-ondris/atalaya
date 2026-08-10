@@ -35,6 +35,18 @@ Cada integración mantiene un cursor JSON independiente porque Sentry y Applicat
 Insights no necesariamente expresan su progreso de la misma forma. El adapter es
 responsable de validar la estructura que escribe y lee.
 
+Una aplicación puede tener varias integraciones de la misma fuente, diferenciadas
+por `component` (`frontend` o `backend`). `monitoring_started_at` evita que una
+integración recién habilitada recorra e interprete historia anterior a su alta.
+`last_attempt_at`, `last_success_at` y `last_error` alimentan el estado operativo.
+
+### Políticas por aplicación
+
+`applications.alert_policy` conserva la política efectiva de alertas. Frontend y
+backend mantienen fingerprints y deduplicación independientes, pero comparten el
+rate limit de su aplicación. Los filtros de ambientes pertenecen a la integración,
+porque Farmami usa `production` en backend y `vercel-production` en frontend.
+
 ### Jobs durables
 
 Los jobs pendientes se ordenan por `available_at` y `created_at`. Un worker los

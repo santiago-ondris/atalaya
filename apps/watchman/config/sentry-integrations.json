@@ -1,0 +1,25 @@
+{
+  "applications": [
+    {
+      "slug": "prensap",
+      "integrations": [
+        {"component": "backend", "display_name": "Backend", "project": "prensap-backend", "environments": ["production"]},
+        {"component": "frontend", "display_name": "Frontend", "project": "prensap-frontend", "environments": ["production"]}
+      ]
+    },
+    {
+      "slug": "farmami",
+      "integrations": [
+        {"component": "backend", "display_name": "Backend", "project": "farmami-backend", "environments": ["production"]},
+        {"component": "frontend", "display_name": "Frontend", "project": "farmami-frontend", "environments": ["vercel-production"]}
+      ]
+    },
+    {
+      "slug": "wheels_house",
+      "integrations": [
+        {"component": "backend", "display_name": "Backend", "project": "wheelshouse-backend", "environments": ["production"]},
+        {"component": "frontend", "display_name": "Frontend", "project": "wheelshouse-frontend", "environments": ["production"]}
+      ]
+    }
+  ]
+}

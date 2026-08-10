@@ -18,7 +18,7 @@ WORKDIR /app
 COPY --from=watchman-build /out/watchman /usr/local/bin/watchman
 COPY --from=goose-build /go/bin/goose /usr/local/bin/goose
 COPY migrations /app/migrations
+COPY config /app/config
 USER atalaya
 EXPOSE 8080
 CMD ["watchman"]
-

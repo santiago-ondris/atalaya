@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -20,7 +21,8 @@ type correlationIDContextKey struct{}
 
 type Database interface {
 	Ping(context.Context) error
-	ListEvents(context.Context, int) ([]store.EventSummary, error)
+	ListEvents(context.Context, store.EventFilter) ([]store.EventSummary, error)
+	ListIntegrations(context.Context) ([]store.IntegrationStatus, error)
 	Event(context.Context, string) (store.EventDetail, error)
 }
 
@@ -39,6 +41,7 @@ func New(address string, database Database, logger *slog.Logger, readinessTimeou
 	mux.HandleFunc("GET /ready", server.ready)
 	mux.HandleFunc("GET /internal/events", server.listEvents)
 	mux.HandleFunc("GET /internal/events/{id}", server.eventDetail)
+	mux.HandleFunc("GET /internal/integrations", server.listIntegrations)
 
 	server.httpServer = &http.Server{
 		Addr:              address,
@@ -60,13 +63,30 @@ func (s *Server) listEvents(w http.ResponseWriter, request *http.Request) {
 		}
 		limit = parsed
 	}
-	events, err := s.database.ListEvents(request.Context(), limit)
+	application, component := request.URL.Query().Get("application"), request.URL.Query().Get("component")
+	if (application != "" && !slugPattern.MatchString(application)) || (component != "" && !slugPattern.MatchString(component)) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "application and component must be valid slugs"})
+		return
+	}
+	events, err := s.database.ListEvents(request.Context(), store.EventFilter{Limit: limit, Application: application, Component: component})
 	if err != nil {
 		s.logger.Error("failed to list events", "error", err)
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to list events"})
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"events": events})
+}
+
+var slugPattern = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
+
+func (s *Server) listIntegrations(w http.ResponseWriter, request *http.Request) {
+	integrations, err := s.database.ListIntegrations(request.Context())
+	if err != nil {
+		s.logger.Error("failed to list integrations", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to list integrations"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"integrations": integrations})
 }
 
 func (s *Server) eventDetail(w http.ResponseWriter, request *http.Request) {

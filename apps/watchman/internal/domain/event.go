@@ -30,6 +30,34 @@ type ErrorSource interface {
 	FetchEvents(ctx context.Context, cursor Cursor) (EventBatch, error)
 }
 
+type AlertPolicy struct {
+	Enabled                    bool     `json:"enabled"`
+	AlwaysAlertSeverities      []string `json:"always_alert_severities"`
+	ActionableAlertSeverities  []string `json:"actionable_alert_severities"`
+	DeduplicationWindowSeconds int      `json:"deduplication_window_seconds"`
+	RateLimitWindowSeconds     int      `json:"rate_limit_window_seconds"`
+	RateLimitCount             int      `json:"rate_limit_count"`
+}
+
+func (policy AlertPolicy) Eligible(interpretation Interpretation) bool {
+	if !policy.Enabled {
+		return false
+	}
+	for _, severity := range policy.AlwaysAlertSeverities {
+		if interpretation.Severity == severity {
+			return true
+		}
+	}
+	if interpretation.Actionable {
+		for _, severity := range policy.ActionableAlertSeverities {
+			if interpretation.Severity == severity {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 type InterpretationJob struct {
 	ID            string
 	EventID       string
@@ -45,6 +73,7 @@ type InterpretationJob struct {
 	Fingerprint   string
 	Metadata      map[string]any
 	PromptVersion string
+	AlertPolicy   AlertPolicy
 	Attempts      int
 	MaxAttempts   int
 }
@@ -68,18 +97,12 @@ type Interpretation struct {
 	LatencyMS        int        `json:"latency_ms"`
 }
 
-func (interpretation Interpretation) AlertEligible() bool {
-	if interpretation.Severity == "critical" || interpretation.Severity == "high" {
-		return true
-	}
-	return interpretation.Severity == "medium" && interpretation.Actionable
-}
-
 type NotificationJob struct {
 	ID               string
 	EventID          string
 	Kind             string
 	Application      string
+	Component        string
 	Source           string
 	SourceEventID    string
 	Environment      string

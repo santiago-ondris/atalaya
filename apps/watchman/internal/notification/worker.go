@@ -12,7 +12,7 @@ import (
 )
 
 type Store interface {
-	ClaimNotificationJob(context.Context, string, time.Duration, int) (domain.NotificationJob, error)
+	ClaimNotificationJob(context.Context, string) (domain.NotificationJob, error)
 	CompleteNotification(context.Context, domain.NotificationJob, time.Time, domain.DeliveryResult) error
 	FailNotification(context.Context, domain.NotificationJob, time.Time, error, bool, int) error
 }
@@ -21,17 +21,16 @@ type Sender interface {
 }
 
 type Worker struct {
-	store                Store
-	sender               Sender
-	id                   string
-	interval, rateWindow time.Duration
-	rateLimit            int
-	links                Links
-	logger               *slog.Logger
+	store    Store
+	sender   Sender
+	id       string
+	interval time.Duration
+	links    Links
+	logger   *slog.Logger
 }
 
-func NewWorker(store Store, sender Sender, id string, interval, rateWindow time.Duration, rateLimit int, links Links, logger *slog.Logger) *Worker {
-	return &Worker{store: store, sender: sender, id: id, interval: interval, rateWindow: rateWindow, rateLimit: rateLimit, links: links, logger: logger}
+func NewWorker(store Store, sender Sender, id string, interval time.Duration, links Links, logger *slog.Logger) *Worker {
+	return &Worker{store: store, sender: sender, id: id, interval: interval, links: links, logger: logger}
 }
 func (worker *Worker) Run(ctx context.Context) {
 	ticker := time.NewTicker(worker.interval)
@@ -46,7 +45,7 @@ func (worker *Worker) Run(ctx context.Context) {
 	}
 }
 func (worker *Worker) processOne(ctx context.Context) {
-	job, err := worker.store.ClaimNotificationJob(ctx, worker.id, worker.rateWindow, worker.rateLimit)
+	job, err := worker.store.ClaimNotificationJob(ctx, worker.id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return
 	}

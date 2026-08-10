@@ -18,17 +18,46 @@ const maxResponseBytes = 10 << 20
 
 type Client struct {
 	baseURL, organization, project, token string
+	environments                          map[string]bool
+	monitoringStartedAt                   time.Time
+	gate                                  *RequestGate
 	httpClient                            *http.Client
 }
 
-func NewClient(baseURL, organization, project, token string, httpClient *http.Client) *Client {
+type RequestGate struct{ slot chan struct{} }
+
+func NewRequestGate() *RequestGate { return &RequestGate{slot: make(chan struct{}, 1)} }
+
+func (gate *RequestGate) acquire(ctx context.Context) error {
+	select {
+	case gate.slot <- struct{}{}:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (gate *RequestGate) release() { <-gate.slot }
+
+func NewClient(baseURL, organization, project, token string, environments []string, monitoringStartedAt time.Time, gate *RequestGate, httpClient *http.Client) *Client {
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 20 * time.Second}
 	}
-	return &Client{strings.TrimRight(baseURL, "/"), organization, project, token, httpClient}
+	allowed := make(map[string]bool, len(environments))
+	for _, environment := range environments {
+		allowed[environment] = true
+	}
+	if gate == nil {
+		gate = NewRequestGate()
+	}
+	return &Client{strings.TrimRight(baseURL, "/"), organization, project, token, allowed, monitoringStartedAt, gate, httpClient}
 }
 
 func (client *Client) FetchEvents(ctx context.Context, cursor domain.Cursor) (domain.EventBatch, error) {
+	if err := client.gate.acquire(ctx); err != nil {
+		return domain.EventBatch{}, fmt.Errorf("wait for Sentry request slot: %w", err)
+	}
+	defer client.gate.release()
 	endpoint := fmt.Sprintf("%s/api/0/projects/%s/%s/events/", client.baseURL,
 		url.PathEscape(client.organization), url.PathEscape(client.project))
 	query := url.Values{"full": {"true"}}
@@ -58,7 +87,12 @@ func (client *Client) FetchEvents(ctx context.Context, cursor domain.Cursor) (do
 		return domain.EventBatch{}, fmt.Errorf("decode sentry events: %w", err)
 	}
 	events := make([]domain.Event, 0, len(payload))
+	reachedMonitoringStart := false
 	for _, item := range payload {
+		if !client.monitoringStartedAt.IsZero() && item.DateCreated.Before(client.monitoringStartedAt) {
+			reachedMonitoringStart = true
+			continue
+		}
 		if item.Type != "error" {
 			continue
 		}
@@ -66,9 +100,17 @@ func (client *Client) FetchEvents(ctx context.Context, cursor domain.Cursor) (do
 		if err != nil {
 			return domain.EventBatch{}, err
 		}
+		if len(client.environments) > 0 && !client.environments[event.Environment] {
+			continue
+		}
+		event.Metadata["sentry_project"] = client.project
 		events = append(events, event)
 	}
-	return domain.EventBatch{Events: events, NextCursor: domain.Cursor{Value: nextCursor(response.Header.Get("Link"))}}, nil
+	next := nextCursor(response.Header.Get("Link"))
+	if reachedMonitoringStart {
+		next = ""
+	}
+	return domain.EventBatch{Events: events, NextCursor: domain.Cursor{Value: next}}, nil
 }
 
 type apiEvent struct {

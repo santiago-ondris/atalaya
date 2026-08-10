@@ -17,11 +17,24 @@ import (
 type stubDatabase struct{ err error }
 
 func (database stubDatabase) Ping(context.Context) error { return database.err }
-func (database stubDatabase) ListEvents(context.Context, int) ([]store.EventSummary, error) {
+func (database stubDatabase) ListEvents(context.Context, store.EventFilter) ([]store.EventSummary, error) {
+	return nil, database.err
+}
+func (database stubDatabase) ListIntegrations(context.Context) ([]store.IntegrationStatus, error) {
 	return nil, database.err
 }
 func (database stubDatabase) Event(context.Context, string) (store.EventDetail, error) {
 	return store.EventDetail{}, pgx.ErrNoRows
+}
+
+type recordingDatabase struct {
+	stubDatabase
+	filter store.EventFilter
+}
+
+func (database *recordingDatabase) ListEvents(_ context.Context, filter store.EventFilter) ([]store.EventSummary, error) {
+	database.filter = filter
+	return nil, nil
 }
 
 func TestHealth(t *testing.T) {
@@ -62,6 +75,30 @@ func TestReadyWhenDatabaseIsUnavailable(t *testing.T) {
 
 	if response.Code != http.StatusServiceUnavailable {
 		t.Fatalf("expected status %d, got %d", http.StatusServiceUnavailable, response.Code)
+	}
+}
+
+func TestListEventsAcceptsApplicationAndComponentFilters(t *testing.T) {
+	database := &recordingDatabase{}
+	server := newTestServer(database)
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/internal/events?limit=25&application=farmami&component=frontend", nil)
+	server.httpServer.Handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", response.Code)
+	}
+	if database.filter != (store.EventFilter{Limit: 25, Application: "farmami", Component: "frontend"}) {
+		t.Fatalf("unexpected filter: %#v", database.filter)
+	}
+}
+
+func TestListEventsRejectsInvalidFilter(t *testing.T) {
+	server := newTestServer(stubDatabase{})
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/internal/events?application=not-valid", nil)
+	server.httpServer.Handler.ServeHTTP(response, request)
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", response.Code)
 	}
 }
 

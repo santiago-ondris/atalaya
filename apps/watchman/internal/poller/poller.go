@@ -19,12 +19,14 @@ type Poller struct {
 	source        domain.ErrorSource
 	store         Store
 	integrationID uuid.UUID
+	application   string
+	component     string
 	interval      time.Duration
 	logger        *slog.Logger
 }
 
-func New(source domain.ErrorSource, store Store, integrationID uuid.UUID, interval time.Duration, logger *slog.Logger) *Poller {
-	return &Poller{source: source, store: store, integrationID: integrationID, interval: interval, logger: logger}
+func New(source domain.ErrorSource, store Store, integrationID uuid.UUID, application, component string, interval time.Duration, logger *slog.Logger) *Poller {
+	return &Poller{source: source, store: store, integrationID: integrationID, application: application, component: component, interval: interval, logger: logger}
 }
 
 func (poller *Poller) Run(ctx context.Context) {
@@ -57,11 +59,13 @@ func (poller *Poller) poll(ctx context.Context) {
 		poller.failed(ctx, "persist sentry events", err)
 		return
 	}
-	poller.logger.Info("sentry poll completed", "received", len(batch.Events), "imported", imported)
+	poller.logger.Info("sentry poll completed", "application", poller.application, "component", poller.component,
+		"integration_id", poller.integrationID, "received", len(batch.Events), "imported", imported)
 }
 
 func (poller *Poller) failed(ctx context.Context, operation string, err error) {
-	poller.logger.Error("sentry poll failed", "operation", operation, "error", err)
+	poller.logger.Error("sentry poll failed", "application", poller.application, "component", poller.component,
+		"integration_id", poller.integrationID, "operation", operation, "error", err)
 	if recordErr := poller.store.RecordAttempt(ctx, poller.integrationID, err); recordErr != nil {
 		poller.logger.Error("failed to record poll attempt", "error", recordErr)
 	}

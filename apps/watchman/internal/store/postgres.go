@@ -17,22 +17,55 @@ type Postgres struct{ pool *pgxpool.Pool }
 
 func NewPostgres(pool *pgxpool.Pool) *Postgres { return &Postgres{pool: pool} }
 
-func (store *Postgres) EnsureSentryIntegration(ctx context.Context, appSlug, organization, project string) (uuid.UUID, error) {
-	identifiers, _ := json.Marshal(map[string]string{"organization": organization, "project": project})
+type SentryIntegrationSpec struct {
+	Application, Component, DisplayName, Organization, Project string
+	Environments                                               []string
+	AlertPolicy                                                domain.AlertPolicy
+}
+
+type IntegrationRuntime struct {
+	ID                  uuid.UUID
+	MonitoringStartedAt time.Time
+}
+
+func (store *Postgres) EnsureSentryIntegration(ctx context.Context, spec SentryIntegrationSpec) (IntegrationRuntime, error) {
+	identifiers, _ := json.Marshal(map[string]string{"organization": spec.Organization, "project": spec.Project})
+	policy, _ := json.Marshal(spec.AlertPolicy)
+	tx, err := store.pool.Begin(ctx)
+	if err != nil {
+		return IntegrationRuntime{}, fmt.Errorf("begin ensure Sentry integration: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	result, err := tx.Exec(ctx, `UPDATE applications SET alert_policy=$2 WHERE slug=$1`, spec.Application, policy)
+	if err != nil {
+		return IntegrationRuntime{}, fmt.Errorf("update application alert policy: %w", err)
+	}
+	if result.RowsAffected() != 1 {
+		return IntegrationRuntime{}, fmt.Errorf("unknown application %q", spec.Application)
+	}
 	var id uuid.UUID
-	err := store.pool.QueryRow(ctx, `
-		INSERT INTO integrations (application_id, source, external_identifier)
-		SELECT id, 'sentry', $2 FROM applications WHERE slug = $1
-		ON CONFLICT (application_id, source) DO UPDATE SET external_identifier = EXCLUDED.external_identifier
-		RETURNING id`, appSlug, identifiers).Scan(&id)
+	err = tx.QueryRow(ctx, `
+		INSERT INTO integrations (application_id, source, component, display_name, external_identifier, environment_filters)
+		SELECT id, 'sentry', $2, $3, $4, $5 FROM applications WHERE slug = $1
+		ON CONFLICT (application_id, source, component) DO UPDATE SET
+			display_name=EXCLUDED.display_name, external_identifier=EXCLUDED.external_identifier,
+			environment_filters=EXCLUDED.environment_filters, enabled=true
+		RETURNING id`, spec.Application, spec.Component, spec.DisplayName, identifiers, spec.Environments).Scan(&id)
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("ensure sentry integration: %w", err)
+		return IntegrationRuntime{}, fmt.Errorf("ensure sentry integration: %w", err)
 	}
-	_, err = store.pool.Exec(ctx, `INSERT INTO source_checkpoints (integration_id) VALUES ($1) ON CONFLICT DO NOTHING`, id)
+	_, err = tx.Exec(ctx, `INSERT INTO source_checkpoints (integration_id,monitoring_started_at) VALUES ($1,now()) ON CONFLICT DO NOTHING`, id)
 	if err != nil {
-		return uuid.Nil, fmt.Errorf("ensure sentry checkpoint: %w", err)
+		return IntegrationRuntime{}, fmt.Errorf("ensure sentry checkpoint: %w", err)
 	}
-	return id, nil
+	var startedAt time.Time
+	if err := tx.QueryRow(ctx, `SELECT monitoring_started_at FROM source_checkpoints WHERE integration_id=$1`, id).Scan(&startedAt); err != nil {
+		return IntegrationRuntime{}, fmt.Errorf("load monitoring start: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return IntegrationRuntime{}, fmt.Errorf("commit Sentry integration: %w", err)
+	}
+	return IntegrationRuntime{ID: id, MonitoringStartedAt: startedAt}, nil
 }
 
 func (store *Postgres) Checkpoint(ctx context.Context, integrationID uuid.UUID) (domain.Cursor, error) {
@@ -124,10 +157,10 @@ func (store *Postgres) ClaimInterpretationJob(ctx context.Context, workerID stri
 	}
 	defer tx.Rollback(ctx)
 	var job domain.InterpretationJob
-	var metadata []byte
+	var metadata, alertPolicy []byte
 	err = tx.QueryRow(ctx, `
 		SELECT j.id,e.id,i.source,e.source_event_id,a.slug,g.environment,e.occurred_at,e.error_type,e.message,
-		       COALESCE(e.stack_trace,''),COALESCE(e.release,''),g.fingerprint,e.metadata,j.prompt_version,j.attempts+1,j.max_attempts
+		       COALESCE(e.stack_trace,''),COALESCE(e.release,''),g.fingerprint,e.metadata,a.alert_policy,j.prompt_version,j.attempts+1,j.max_attempts
 		FROM interpretation_jobs j
 		JOIN error_events e ON e.id=j.error_event_id
 		JOIN error_groups g ON g.id=e.error_group_id
@@ -138,11 +171,14 @@ func (store *Postgres) ClaimInterpretationJob(ctx context.Context, workerID stri
 		ORDER BY j.available_at,j.created_at FOR UPDATE OF j SKIP LOCKED LIMIT 1`).Scan(
 		&job.ID, &job.EventID, &job.Source, &job.SourceEventID, &job.Application, &job.Environment,
 		&job.OccurredAt, &job.ErrorType, &job.Message, &job.StackTrace, &job.Release, &job.Fingerprint,
-		&metadata, &job.PromptVersion, &job.Attempts, &job.MaxAttempts)
+		&metadata, &alertPolicy, &job.PromptVersion, &job.Attempts, &job.MaxAttempts)
 	if err != nil {
 		return domain.InterpretationJob{}, err
 	}
 	if err := json.Unmarshal(metadata, &job.Metadata); err != nil {
+		return domain.InterpretationJob{}, err
+	}
+	if err := json.Unmarshal(alertPolicy, &job.AlertPolicy); err != nil {
 		return domain.InterpretationJob{}, err
 	}
 	if job.Attempts > job.MaxAttempts {
@@ -157,7 +193,7 @@ func (store *Postgres) ClaimInterpretationJob(ctx context.Context, workerID stri
 	return job, nil
 }
 
-func (store *Postgres) CompleteInterpretation(ctx context.Context, job domain.InterpretationJob, result domain.Interpretation, deduplicationWindow time.Duration) error {
+func (store *Postgres) CompleteInterpretation(ctx context.Context, job domain.InterpretationJob, result domain.Interpretation) error {
 	actions, err := json.Marshal(result.SuggestedActions)
 	if err != nil {
 		return err
@@ -176,7 +212,8 @@ func (store *Postgres) CompleteInterpretation(ctx context.Context, job domain.In
 	if err != nil {
 		return fmt.Errorf("insert interpretation: %w", err)
 	}
-	if err := enqueueEventAlert(ctx, tx, job, interpretationID, deduplicationWindow, result.AlertEligible()); err != nil {
+	deduplicationWindow := time.Duration(job.AlertPolicy.DeduplicationWindowSeconds) * time.Second
+	if err := enqueueEventAlert(ctx, tx, job, interpretationID, deduplicationWindow, job.AlertPolicy.Eligible(result)); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(ctx, `UPDATE interpretation_jobs SET status='completed',completed_at=now(),locked_at=NULL,locked_by=NULL,last_error=NULL,updated_at=now() WHERE id=$1`, job.ID); err != nil {
@@ -255,7 +292,7 @@ func (store *Postgres) FailInterpretationJob(ctx context.Context, job domain.Int
 	return tx.Commit(ctx)
 }
 
-func (store *Postgres) ClaimNotificationJob(ctx context.Context, workerID string, rateWindow time.Duration, rateLimit int) (domain.NotificationJob, error) {
+func (store *Postgres) ClaimNotificationJob(ctx context.Context, workerID string) (domain.NotificationJob, error) {
 	if _, err := store.pool.Exec(ctx, `UPDATE notification_jobs j SET status='skipped',completed_at=now(),updated_at=now()
 		FROM alert_windows w WHERE j.alert_window_id=w.id AND j.kind='group_summary' AND j.status='pending'
 		AND j.available_at <= now() AND w.occurrence_count=1`); err != nil {
@@ -268,7 +305,7 @@ func (store *Postgres) ClaimNotificationJob(ctx context.Context, workerID string
 	defer tx.Rollback(ctx)
 	var job domain.NotificationJob
 	var actions []byte
-	err = tx.QueryRow(ctx, `SELECT j.id,COALESCE(e.id::text,''),j.kind,COALESCE(a.slug,'atalaya'),COALESCE(src.source,'internal'),
+	err = tx.QueryRow(ctx, `SELECT j.id,COALESCE(e.id::text,''),j.kind,COALESCE(a.slug,'atalaya'),COALESCE(src.component,''),COALESCE(src.source,'internal'),
 		COALESCE(e.source_event_id,''),COALESCE(g.environment,''),COALESCE(g.error_type,''),COALESCE(e.release,''),
 		COALESCE(i.summary,'Interpreter degradado'),COALESCE(i.explanation,'Una interpretación agotó sus reintentos. Los eventos siguen almacenándose.'),
 		COALESCE(i.severity,'high'),COALESCE(i.actionable,true),COALESCE(i.suggested_actions,'["Revisar los logs del interpreter y OpenRouter"]'::jsonb),
@@ -287,9 +324,10 @@ func (store *Postgres) ClaimNotificationJob(ctx context.Context, workerID string
 			JOIN error_groups sent_group ON sent_group.id=sent_window.error_group_id
 			JOIN integrations sent_source ON sent_source.id=sent_group.integration_id
 			WHERE da.outcome='sent' AND sent_job.kind='event_alert' AND sent_source.application_id=src.application_id
-			AND da.finished_at > now()-$1::interval) < $2)
-		ORDER BY j.available_at,j.created_at FOR UPDATE OF j SKIP LOCKED LIMIT 1`, rateWindow.String(), rateLimit).Scan(
-		&job.ID, &job.EventID, &job.Kind, &job.Application, &job.Source, &job.SourceEventID, &job.Environment, &job.ErrorType, &job.Release,
+			AND da.finished_at > now()-make_interval(secs => COALESCE((a.alert_policy->>'rate_limit_window_seconds')::int,600)))
+			< COALESCE((a.alert_policy->>'rate_limit_count')::int,10))
+		ORDER BY j.available_at,j.created_at FOR UPDATE OF j SKIP LOCKED LIMIT 1`).Scan(
+		&job.ID, &job.EventID, &job.Kind, &job.Application, &job.Component, &job.Source, &job.SourceEventID, &job.Environment, &job.ErrorType, &job.Release,
 		&job.Summary, &job.Explanation, &job.Severity, &job.Actionable, &actions, &job.OccurrenceCount,
 		&job.FirstOccurredAt, &job.LastOccurredAt, &job.Attempts, &job.MaxAttempts)
 	if err != nil {
@@ -351,11 +389,34 @@ type EventSummary struct {
 	ID            string    `json:"id"`
 	SourceEventID string    `json:"source_event_id"`
 	Application   string    `json:"application"`
+	Component     string    `json:"component"`
 	Environment   string    `json:"environment"`
 	ErrorType     string    `json:"error_type"`
 	Message       string    `json:"message"`
 	OccurredAt    time.Time `json:"occurred_at"`
 	IngestedAt    time.Time `json:"ingested_at"`
+}
+
+type EventFilter struct {
+	Limit       int
+	Application string
+	Component   string
+}
+
+type IntegrationStatus struct {
+	ID                  string     `json:"id"`
+	Application         string     `json:"application"`
+	Component           string     `json:"component"`
+	DisplayName         string     `json:"display_name"`
+	Source              string     `json:"source"`
+	Project             string     `json:"project"`
+	Enabled             bool       `json:"enabled"`
+	Environments        []string   `json:"environments"`
+	MonitoringStartedAt time.Time  `json:"monitoring_started_at"`
+	LastAttemptAt       *time.Time `json:"last_attempt_at,omitempty"`
+	LastSuccessAt       *time.Time `json:"last_success_at,omitempty"`
+	LastError           *string    `json:"last_error,omitempty"`
+	Status              string     `json:"status"`
 }
 
 type EventDetail struct {
@@ -367,10 +428,12 @@ type EventDetail struct {
 	Interpretation *domain.Interpretation `json:"interpretation,omitempty"`
 }
 
-func (store *Postgres) ListEvents(ctx context.Context, limit int) ([]EventSummary, error) {
-	rows, err := store.pool.Query(ctx, `SELECT e.id,e.source_event_id,a.slug,g.environment,e.error_type,e.message,e.occurred_at,e.ingested_at
+func (store *Postgres) ListEvents(ctx context.Context, filter EventFilter) ([]EventSummary, error) {
+	query := `SELECT e.id,e.source_event_id,a.slug,i.component,g.environment,e.error_type,e.message,e.occurred_at,e.ingested_at
 		FROM error_events e JOIN error_groups g ON g.id=e.error_group_id JOIN integrations i ON i.id=e.integration_id JOIN applications a ON a.id=i.application_id
-		ORDER BY e.occurred_at DESC LIMIT $1`, limit)
+		WHERE ($2='' OR a.slug=$2) AND ($3='' OR i.component=$3)
+		ORDER BY e.occurred_at DESC LIMIT $1`
+	rows, err := store.pool.Query(ctx, query, filter.Limit, filter.Application, filter.Component)
 	if err != nil {
 		return nil, err
 	}
@@ -378,7 +441,7 @@ func (store *Postgres) ListEvents(ctx context.Context, limit int) ([]EventSummar
 	items := make([]EventSummary, 0)
 	for rows.Next() {
 		var item EventSummary
-		if err := rows.Scan(&item.ID, &item.SourceEventID, &item.Application, &item.Environment, &item.ErrorType, &item.Message, &item.OccurredAt, &item.IngestedAt); err != nil {
+		if err := rows.Scan(&item.ID, &item.SourceEventID, &item.Application, &item.Component, &item.Environment, &item.ErrorType, &item.Message, &item.OccurredAt, &item.IngestedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, item)
@@ -389,10 +452,10 @@ func (store *Postgres) ListEvents(ctx context.Context, limit int) ([]EventSummar
 func (store *Postgres) Event(ctx context.Context, id string) (EventDetail, error) {
 	var item EventDetail
 	var metadata []byte
-	err := store.pool.QueryRow(ctx, `SELECT e.id,e.source_event_id,a.slug,g.environment,e.error_type,e.message,e.occurred_at,e.ingested_at,
+	err := store.pool.QueryRow(ctx, `SELECT e.id,e.source_event_id,a.slug,i.component,g.environment,e.error_type,e.message,e.occurred_at,e.ingested_at,
 		g.fingerprint,COALESCE(e.stack_trace,''),COALESCE(e.release,''),e.metadata
 		FROM error_events e JOIN error_groups g ON g.id=e.error_group_id JOIN integrations i ON i.id=e.integration_id JOIN applications a ON a.id=i.application_id WHERE e.id=$1`, id).
-		Scan(&item.ID, &item.SourceEventID, &item.Application, &item.Environment, &item.ErrorType, &item.Message, &item.OccurredAt, &item.IngestedAt, &item.Fingerprint, &item.StackTrace, &item.Release, &metadata)
+		Scan(&item.ID, &item.SourceEventID, &item.Application, &item.Component, &item.Environment, &item.ErrorType, &item.Message, &item.OccurredAt, &item.IngestedAt, &item.Fingerprint, &item.StackTrace, &item.Release, &metadata)
 	if err != nil {
 		return EventDetail{}, err
 	}
@@ -416,4 +479,38 @@ func (store *Postgres) Event(ctx context.Context, id string) (EventDetail, error
 		return EventDetail{}, err
 	}
 	return item, nil
+}
+
+func (store *Postgres) ListIntegrations(ctx context.Context) ([]IntegrationStatus, error) {
+	rows, err := store.pool.Query(ctx, `SELECT i.id,a.slug,i.component,i.display_name,i.source,
+		COALESCE(i.external_identifier->>'project',''),(a.enabled AND i.enabled),i.environment_filters,
+		c.monitoring_started_at,c.last_attempt_at,c.last_success_at,c.last_error
+		FROM integrations i JOIN applications a ON a.id=i.application_id
+		JOIN source_checkpoints c ON c.integration_id=i.id
+		ORDER BY a.slug,i.component`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := make([]IntegrationStatus, 0)
+	for rows.Next() {
+		var item IntegrationStatus
+		if err := rows.Scan(&item.ID, &item.Application, &item.Component, &item.DisplayName, &item.Source,
+			&item.Project, &item.Enabled, &item.Environments, &item.MonitoringStartedAt,
+			&item.LastAttemptAt, &item.LastSuccessAt, &item.LastError); err != nil {
+			return nil, err
+		}
+		switch {
+		case !item.Enabled:
+			item.Status = "disabled"
+		case item.LastAttemptAt == nil:
+			item.Status = "never_run"
+		case item.LastError != nil:
+			item.Status = "error"
+		default:
+			item.Status = "ok"
+		}
+		items = append(items, item)
+	}
+	return items, rows.Err()
 }

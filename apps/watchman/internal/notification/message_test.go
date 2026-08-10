@@ -9,11 +9,11 @@ import (
 )
 
 func TestFormatEventEscapesContentAndIncludesLinks(t *testing.T) {
-	job := domain.NotificationJob{EventID: "event-id", Kind: "event_alert", Application: "prensap", Source: "sentry", SourceEventID: "source-id",
+	job := domain.NotificationJob{EventID: "event-id", Kind: "event_alert", Application: "prensap", Component: "backend", Source: "sentry", SourceEventID: "source-id",
 		ErrorType: "TypeError <script>", Summary: "No carga & falla", Explanation: "Explicación", Severity: "high", OccurrenceCount: 3,
 		FirstOccurredAt: time.Date(2026, 8, 7, 10, 0, 0, 0, time.UTC), LastOccurredAt: time.Date(2026, 8, 7, 10, 5, 0, 0, time.UTC), SuggestedActions: []string{"Revisar <logs>"}}
 	message := Format(job, Links{AtalayaBaseURL: "https://atalaya.example", SentryBaseURL: "https://sentry.io", SentryOrganization: "acme"})
-	for _, expected := range []string{"Prensap · HIGH", "TypeError &lt;script&gt;", "No carga &amp; falla", "Ocurrencias: <b>3</b>", "Ver en Atalaya", "Ver en Sentry"} {
+	for _, expected := range []string{"Prensap · Backend · HIGH", "TypeError &lt;script&gt;", "No carga &amp; falla", "Ocurrencias: <b>3</b>", "Ver en Atalaya", "Ver en Sentry"} {
 		if !strings.Contains(message, expected) {
 			t.Fatalf("message missing %q:\n%s", expected, message)
 		}
