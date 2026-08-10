@@ -23,9 +23,52 @@ type SentryIntegrationSpec struct {
 	AlertPolicy                                                domain.AlertPolicy
 }
 
+type ApplicationInsightsIntegrationSpec struct {
+	Application, Component, DisplayName, WorkspaceID, ResourceID, Environment string
+	AlertPolicy                                                               domain.AlertPolicy
+}
+
 type IntegrationRuntime struct {
 	ID                  uuid.UUID
 	MonitoringStartedAt time.Time
+}
+
+func (store *Postgres) EnsureApplicationInsightsIntegration(ctx context.Context, spec ApplicationInsightsIntegrationSpec) (IntegrationRuntime, error) {
+	identifiers, _ := json.Marshal(map[string]string{"workspace_id": spec.WorkspaceID, "resource_id": spec.ResourceID})
+	policy, _ := json.Marshal(spec.AlertPolicy)
+	tx, err := store.pool.Begin(ctx)
+	if err != nil {
+		return IntegrationRuntime{}, fmt.Errorf("begin ensure Application Insights integration: %w", err)
+	}
+	defer tx.Rollback(ctx)
+	result, err := tx.Exec(ctx, `UPDATE applications SET alert_policy=$2 WHERE slug=$1`, spec.Application, policy)
+	if err != nil {
+		return IntegrationRuntime{}, fmt.Errorf("update application alert policy: %w", err)
+	}
+	if result.RowsAffected() != 1 {
+		return IntegrationRuntime{}, fmt.Errorf("unknown application %q", spec.Application)
+	}
+	var id uuid.UUID
+	err = tx.QueryRow(ctx, `INSERT INTO integrations (application_id,source,component,display_name,external_identifier,environment_filters)
+		SELECT id,'application_insights',$2,$3,$4,ARRAY[$5] FROM applications WHERE slug=$1
+		ON CONFLICT (application_id,source,component) DO UPDATE SET display_name=EXCLUDED.display_name,
+		external_identifier=EXCLUDED.external_identifier,environment_filters=EXCLUDED.environment_filters,enabled=true RETURNING id`,
+		spec.Application, spec.Component, spec.DisplayName, identifiers, spec.Environment).Scan(&id)
+	if err != nil {
+		return IntegrationRuntime{}, fmt.Errorf("ensure Application Insights integration: %w", err)
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO source_checkpoints (integration_id,monitoring_started_at) VALUES ($1,now()) ON CONFLICT DO NOTHING`, id)
+	if err != nil {
+		return IntegrationRuntime{}, fmt.Errorf("ensure Application Insights checkpoint: %w", err)
+	}
+	var startedAt time.Time
+	if err := tx.QueryRow(ctx, `SELECT monitoring_started_at FROM source_checkpoints WHERE integration_id=$1`, id).Scan(&startedAt); err != nil {
+		return IntegrationRuntime{}, fmt.Errorf("load monitoring start: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return IntegrationRuntime{}, fmt.Errorf("commit Application Insights integration: %w", err)
+	}
+	return IntegrationRuntime{ID: id, MonitoringStartedAt: startedAt}, nil
 }
 
 func (store *Postgres) EnsureSentryIntegration(ctx context.Context, spec SentryIntegrationSpec) (IntegrationRuntime, error) {

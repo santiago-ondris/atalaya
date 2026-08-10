@@ -42,7 +42,7 @@ func (store *storeStub) RecordAttempt(context.Context, uuid.UUID, error) error {
 func TestPollUsesCheckpointAndImportsBatch(t *testing.T) {
 	source := &sourceStub{batch: domain.EventBatch{Events: []domain.Event{{SourceEventID: "event-1"}}, NextCursor: domain.Cursor{Value: "next"}}}
 	storage := &storeStub{checkpoint: domain.Cursor{Value: "current"}}
-	p := New(source, storage, uuid.New(), "prensap", "backend", time.Minute, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	p := New(source, storage, uuid.New(), "prensap", "backend", "sentry", time.Minute, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	p.poll(context.Background())
 	if source.cursor.Value != "current" {
 		t.Fatalf("expected stored cursor, got %q", source.cursor.Value)

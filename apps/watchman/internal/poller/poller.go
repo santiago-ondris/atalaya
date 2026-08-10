@@ -21,12 +21,13 @@ type Poller struct {
 	integrationID uuid.UUID
 	application   string
 	component     string
+	sourceName    string
 	interval      time.Duration
 	logger        *slog.Logger
 }
 
-func New(source domain.ErrorSource, store Store, integrationID uuid.UUID, application, component string, interval time.Duration, logger *slog.Logger) *Poller {
-	return &Poller{source: source, store: store, integrationID: integrationID, application: application, component: component, interval: interval, logger: logger}
+func New(source domain.ErrorSource, store Store, integrationID uuid.UUID, application, component, sourceName string, interval time.Duration, logger *slog.Logger) *Poller {
+	return &Poller{source: source, store: store, integrationID: integrationID, application: application, component: component, sourceName: sourceName, interval: interval, logger: logger}
 }
 
 func (poller *Poller) Run(ctx context.Context) {
@@ -51,20 +52,20 @@ func (poller *Poller) poll(ctx context.Context) {
 	}
 	batch, err := poller.source.FetchEvents(ctx, cursor)
 	if err != nil {
-		poller.failed(ctx, "fetch sentry events", err)
+		poller.failed(ctx, "fetch provider events", err)
 		return
 	}
 	imported, err := poller.store.ImportBatch(ctx, poller.integrationID, batch)
 	if err != nil {
-		poller.failed(ctx, "persist sentry events", err)
+		poller.failed(ctx, "persist provider events", err)
 		return
 	}
-	poller.logger.Info("sentry poll completed", "application", poller.application, "component", poller.component,
+	poller.logger.Info("source poll completed", "source", poller.sourceName, "application", poller.application, "component", poller.component,
 		"integration_id", poller.integrationID, "received", len(batch.Events), "imported", imported)
 }
 
 func (poller *Poller) failed(ctx context.Context, operation string, err error) {
-	poller.logger.Error("sentry poll failed", "application", poller.application, "component", poller.component,
+	poller.logger.Error("source poll failed", "source", poller.sourceName, "application", poller.application, "component", poller.component,
 		"integration_id", poller.integrationID, "operation", operation, "error", err)
 	if recordErr := poller.store.RecordAttempt(ctx, poller.integrationID, err); recordErr != nil {
 		poller.logger.Error("failed to record poll attempt", "error", recordErr)

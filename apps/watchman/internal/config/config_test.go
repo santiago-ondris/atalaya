@@ -39,6 +39,19 @@ func TestLoadSentryCatalogRejectsDuplicateComponents(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsPartialAzureConfiguration(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://example")
+	t.Setenv("SENTRY_CATALOG_PATH", writeCatalog(t, `{"applications":[{"slug":"prensap","integrations":[{"component":"backend","display_name":"Backend","project":"prensap","environments":["production"]}]}]}`))
+	t.Setenv("AZURE_CLIENT_ID", "configured-without-the-other-required-values")
+	t.Setenv("AZURE_CLIENT_SECRET", "")
+	t.Setenv("AZURE_TENANT_ID", "")
+	t.Setenv("AZURE_LOG_ANALYTICS_WORKSPACE_ID", "")
+	_, err := Load()
+	if err == nil || !strings.Contains(err.Error(), "must be configured together") {
+		t.Fatalf("expected partial Azure configuration error, got %v", err)
+	}
+}
+
 func writeCatalog(t *testing.T, content string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "catalog.json")

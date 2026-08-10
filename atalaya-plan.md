@@ -371,6 +371,10 @@ Alcance:
 SPRINT 4 LISTO - INFORMACION EN docs/sprints/sprint-04-multi-sentry-walkthrough.md
  
 ### Sprint 5 — Notizap y Application Insights
+
+**Estado:** completado el 2026-08-10. Autenticación, consulta, checkpoint y flujo
+de una excepción real fueron validados con alcance limitado al recurso
+`notizap-insights`.
  
 **Objetivo:** integrar Notizap sin contaminar el dominio común con detalles de Azure/KQL.
  
@@ -384,6 +388,9 @@ Alcance:
 - Validar idempotencia y diferencias semánticas respecto de Sentry.
 - Documentar permisos y consultas necesarias.
 **Demo:** un error de Notizap recorre el mismo pipeline de persistencia, interpretación y alerta que uno de Sentry.
+
+SPRINT 5 LISTO - INFORMACION EN docs/sprints/sprint-05-application-insights-walkthrough.md
+
  
 ### Sprint 6 — Command center privado
  

@@ -7,21 +7,34 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/domain"
 )
 
 type Config struct {
-	Environment      string
-	HTTPAddress      string
-	DatabaseURL      string
-	ShutdownTimeout  time.Duration
-	ReadinessTimeout time.Duration
-	PollInterval     time.Duration
-	Interpreter      InterpreterConfig
-	Sentry           SentryConfig
-	Telegram         TelegramConfig
+	Environment         string
+	HTTPAddress         string
+	DatabaseURL         string
+	ShutdownTimeout     time.Duration
+	ReadinessTimeout    time.Duration
+	PollInterval        time.Duration
+	Interpreter         InterpreterConfig
+	Sentry              SentryConfig
+	ApplicationInsights ApplicationInsightsConfig
+	Telegram            TelegramConfig
+}
+
+type ApplicationInsightsConfig struct {
+	TenantID, ClientID, ClientSecret, WorkspaceID, ResourceID string
+	TokenURL, LogsURL                                         string
+	Component, DisplayName, Environment                       string
+	Overlap                                                   time.Duration
+}
+
+func (config ApplicationInsightsConfig) Enabled() bool {
+	return config.TenantID != "" && config.ClientID != "" && config.ClientSecret != "" && config.WorkspaceID != "" && config.ResourceID != ""
 }
 
 type InterpreterConfig struct {
@@ -105,6 +118,15 @@ func Load() (Config, error) {
 			OrgSlug:     os.Getenv("SENTRY_ORG_SLUG"),
 			CatalogPath: envOrDefault("SENTRY_CATALOG_PATH", "config/sentry-integrations.json"),
 		},
+		ApplicationInsights: ApplicationInsightsConfig{
+			TenantID: os.Getenv("AZURE_TENANT_ID"), ClientID: os.Getenv("AZURE_CLIENT_ID"),
+			ClientSecret: os.Getenv("AZURE_CLIENT_SECRET"), WorkspaceID: os.Getenv("AZURE_LOG_ANALYTICS_WORKSPACE_ID"),
+			ResourceID: os.Getenv("AZURE_APPLICATION_INSIGHTS_RESOURCE_ID"),
+			TokenURL:   envOrDefault("AZURE_TOKEN_BASE_URL", "https://login.microsoftonline.com"),
+			LogsURL:    envOrDefault("AZURE_LOGS_BASE_URL", "https://api.loganalytics.azure.com"),
+			Component:  envOrDefault("NOTIZAP_COMPONENT", "backend"), DisplayName: envOrDefault("NOTIZAP_DISPLAY_NAME", "Backend"),
+			Environment: envOrDefault("NOTIZAP_ENVIRONMENT", "production"),
+		},
 		Telegram: TelegramConfig{
 			BotToken:         envOrDefault("TELEGRAM_BOT_TOKEN", ""),
 			ChatID:           envOrDefault("TELEGRAM_CHAT_ID", ""),
@@ -118,6 +140,10 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	cfg.Interpreter.Timeout, err = durationSeconds("INTERPRETER_TIMEOUT_SECONDS", 30)
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.ApplicationInsights.Overlap, err = durationSeconds("AZURE_QUERY_OVERLAP_SECONDS", 300)
 	if err != nil {
 		return Config{}, err
 	}
@@ -158,6 +184,19 @@ func Load() (Config, error) {
 	}
 	if cfg.Sentry.Enabled() && cfg.Sentry.OrgSlug == "" {
 		return Config{}, errors.New("SENTRY_ORG_SLUG is required when SENTRY_AUTH_TOKEN is set")
+	}
+	azureValues := []string{cfg.ApplicationInsights.TenantID, cfg.ApplicationInsights.ClientID, cfg.ApplicationInsights.ClientSecret, cfg.ApplicationInsights.WorkspaceID, cfg.ApplicationInsights.ResourceID}
+	configuredAzureValues := 0
+	for _, value := range azureValues {
+		if value != "" {
+			configuredAzureValues++
+		}
+	}
+	if configuredAzureValues != 0 && configuredAzureValues != len(azureValues) {
+		return Config{}, errors.New("Azure credentials, workspace ID and Application Insights resource ID must be configured together")
+	}
+	if cfg.ApplicationInsights.Enabled() && !strings.HasPrefix(strings.ToLower(cfg.ApplicationInsights.ResourceID), "/subscriptions/") {
+		return Config{}, errors.New("AZURE_APPLICATION_INSIGHTS_RESOURCE_ID must be an Azure resource ID")
 	}
 	defaultPolicy := domain.AlertPolicy{
 		Enabled: true, AlwaysAlertSeverities: []string{"critical", "high"}, ActionableAlertSeverities: []string{"medium"},
