@@ -62,17 +62,62 @@
   padding-top: 14px;
 }
 .deploy-strip article {
-  min-width: 190px;
+  min-width: 270px;
   display: grid;
-  gap: 3px;
-  padding: 10px;
+  gap: 10px;
+  padding: 14px;
   border-left: 3px solid var(--info);
   background: var(--background);
 }
-.deploy-strip span,
 .deploy-strip time {
   font: 10px var(--mono);
   color: var(--text3);
+}
+.deployment-marker-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.deployment-environment {
+  padding: 3px 6px;
+  border: 1px solid var(--border-visible);
+  color: var(--text2);
+  font: 600 9px var(--mono);
+  text-transform: uppercase;
+}
+.deployment-marker dl {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+}
+.deployment-marker dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+.deployment-marker dt,
+.deployment-marker dd {
+  margin: 0;
+  font: 10px var(--mono);
+}
+.deployment-marker dt {
+  color: var(--text3);
+}
+.deployment-marker dd {
+  color: var(--text2);
+  text-align: right;
+}
+.deployment-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-visible);
+}
+.deployment-links a {
+  color: var(--info);
+  font: 600 10px var(--mono);
 }
 .accessible-data {
   margin-top: 14px;

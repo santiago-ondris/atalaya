@@ -11,6 +11,7 @@ import {
 } from 'recharts'
 import {
   api,
+  type Deployment,
   type Incident,
   type IncidentStatus,
   type OperationsTimeline,
@@ -170,15 +171,7 @@ export function OperationsPage() {
             <p>Sin deploys registrados en este período.</p>
           ) : (
             data.timeline.deployments.map((deployment) => (
-              <article key={deployment.id}>
-                <strong>
-                  {deployment.version || deployment.commit_sha?.slice(0, 8)}
-                </strong>
-                <span>
-                  {deployment.component} · {deployment.provider}
-                </span>
-                <time>{formatDateTime(deployment.deployed_at)}</time>
-              </article>
+              <DeploymentMarker key={deployment.id} deployment={deployment} />
             ))
           )}
         </div>
@@ -252,6 +245,59 @@ export function OperationsPage() {
         />
       )}
     </main>
+  )
+}
+
+const providerNames: Record<Deployment['provider'], string> = {
+  railway: 'Railway',
+  github_actions: 'GitHub Actions',
+  manual: 'Manual',
+}
+
+export function DeploymentMarker({ deployment }: { deployment: Deployment }) {
+  const shortCommit = deployment.commit_sha?.slice(0, 8)
+  const reference = deployment.version || shortCommit || deployment.external_id
+
+  return (
+    <article className="deployment-marker">
+      <div className="deployment-marker-heading">
+        <strong>{reference}</strong>
+        <span className="deployment-environment">{deployment.environment}</span>
+      </div>
+      <dl>
+        <div>
+          <dt>Componente</dt>
+          <dd>{deployment.component}</dd>
+        </div>
+        <div>
+          <dt>Proveedor</dt>
+          <dd>{providerNames[deployment.provider]}</dd>
+        </div>
+        {deployment.actor && (
+          <div>
+            <dt>Actor</dt>
+            <dd>{deployment.actor}</dd>
+          </div>
+        )}
+      </dl>
+      <time dateTime={deployment.deployed_at}>
+        {formatDateTime(deployment.deployed_at)}
+      </time>
+      {(deployment.commit_url || deployment.source_url) && (
+        <div className="deployment-links">
+          {deployment.commit_url && (
+            <a href={deployment.commit_url} target="_blank" rel="noreferrer">
+              Commit{shortCommit ? ` ${shortCommit}` : ''}
+            </a>
+          )}
+          {deployment.source_url && (
+            <a href={deployment.source_url} target="_blank" rel="noreferrer">
+              Abrir deployment
+            </a>
+          )}
+        </div>
+      )}
+    </article>
   )
 }
 
