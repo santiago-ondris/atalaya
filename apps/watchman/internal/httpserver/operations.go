@@ -244,7 +244,7 @@ func secureEqual(got, want string) bool {
 }
 
 func (s *Server) ingestRailwayDeployment(w http.ResponseWriter, r *http.Request) {
-	if s.railwayToken == "" || !secureEqual(r.PathValue("secret"), s.railwayToken) {
+	if s.railwayToken == "" || !secureEqual(r.URL.Query().Get("token"), s.railwayToken) {
 		writeJSON(w, 401, map[string]string{"error": "invalid railway token"})
 		return
 	}
@@ -276,7 +276,11 @@ func (s *Server) ingestRailwayDeployment(w http.ResponseWriter, r *http.Request)
 	if external == "" {
 		external = payload.Details.ID
 	}
-	s.saveDeployment(w, r, store.DeploymentInput{Application: r.PathValue("application"), Component: r.PathValue("component"), Environment: "production", Provider: "railway", ExternalID: external, Version: payload.Details.CommitMessage, CommitSHA: payload.Details.CommitHash, Actor: payload.Details.CommitAuthor, DeployedAt: payload.Timestamp})
+	version := payload.Details.CommitMessage
+	if version == "" && payload.Details.CommitHash == "" && external != "" {
+		version = "railway-deployment-" + external
+	}
+	s.saveDeployment(w, r, store.DeploymentInput{Application: r.PathValue("application"), Component: r.PathValue("component"), Environment: "production", Provider: "railway", ExternalID: external, Version: version, CommitSHA: payload.Details.CommitHash, Actor: payload.Details.CommitAuthor, DeployedAt: payload.Timestamp})
 }
 
 func (s *Server) listDeployments(w http.ResponseWriter, r *http.Request) {

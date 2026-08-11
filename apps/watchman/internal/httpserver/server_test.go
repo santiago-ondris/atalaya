@@ -185,6 +185,22 @@ func TestDeploymentHookNormalizesGitHubAction(t *testing.T) {
 	}
 }
 
+func TestRailwayRedeployUsesDeploymentIDWhenCommitIsMissing(t *testing.T) {
+	database := &deploymentDatabase{}
+	server := newTestServer(database)
+	server.ConfigureDeploymentHooks("", "railway-secret")
+	response := httptest.NewRecorder()
+	body := `{"type":"Deployment.deployed","timestamp":"2026-08-11T12:00:00Z","details":{"status":"SUCCESS"},"resource":{"environment":{"name":"production"},"deployment":{"id":"railway-deploy-1"}}}`
+	request := httptest.NewRequest(http.MethodPost, "/hooks/v1/deployments/railway/prensap/backend?token=railway-secret", strings.NewReader(body))
+	server.httpServer.Handler.ServeHTTP(response, request)
+	if response.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", response.Code, response.Body.String())
+	}
+	if database.input.ExternalID != "railway-deploy-1" || database.input.Version != "railway-deployment-railway-deploy-1" {
+		t.Fatalf("unexpected deployment fallback: %#v", database.input)
+	}
+}
+
 func newTestServer(database Database) *Server {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	return New(":0", database, auth.New(testSessionStore{}, "$argon2id$v=19$m=65536,t=1,p=1$c2FsdA$WnJdFRKGLdUVZUvrlcIHxA", time.Hour), logger, time.Second, false)

@@ -80,7 +80,7 @@ desde la interfaz. GitHub Actions usa `POST /hooks/v1/deployments` con
 Railway se configura por servicio con una URL de esta forma:
 
 ```text
-https://ATALAYA/hooks/v1/deployments/railway/RAILWAY_WEBHOOK_TOKEN/APLICACION/COMPONENTE
+https://ATALAYA/hooks/v1/deployments/railway/APLICACION/COMPONENTE?token=RAILWAY_WEBHOOK_TOKEN
 ```
 
 Atalaya descarta eventos fallidos o que no pertenezcan al ambiente `production`.

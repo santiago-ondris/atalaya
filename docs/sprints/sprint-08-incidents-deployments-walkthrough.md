@@ -37,6 +37,10 @@ varios grupos de error, notas y conclusiones obligatorias.
 El backend manual de Notizap se registra desde “Bitácora → Registrar deploy”, que
 queda precargado como `notizap/backend/production`.
 
+El webhook Railway lleva su secreto en el query parameter `token`, no en el path,
+para evitar que los access logs de Railway lo muestren. Los redeploys que no
+incluyen commit usan el ID estable del deployment como versión de respaldo.
+
 ## Validación local del 2026-08-11
 
 - Goose aplicó la migración 6 sobre PostgreSQL 18.4.

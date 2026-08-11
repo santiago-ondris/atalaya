@@ -82,7 +82,7 @@ func New(address string, database Database, authService *auth.Service, logger *s
 	mux.Handle("POST /api/v1/deployments", server.private(http.HandlerFunc(server.createManualDeployment)))
 	mux.Handle("GET /api/v1/operations/timeline", server.private(http.HandlerFunc(server.operationsTimeline)))
 	mux.HandleFunc("POST /hooks/v1/deployments", server.ingestDeployment)
-	mux.HandleFunc("POST /hooks/v1/deployments/railway/{secret}/{application}/{component}", server.ingestRailwayDeployment)
+	mux.HandleFunc("POST /hooks/v1/deployments/railway/{application}/{component}", server.ingestRailwayDeployment)
 
 	server.httpServer = &http.Server{
 		Addr:              address,
