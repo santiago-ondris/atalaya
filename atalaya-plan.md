@@ -430,8 +430,11 @@ Alcance:
  
 ### Sprint 8 — Incidentes y deploy markers
 
-**Estado:** implementado localmente el 2026-08-11; pendiente aplicar la migración
-en producción y validar un webhook real de Railway/GitHub Actions.
+**Estado:** completado el 2026-08-11. La migración 6 está aplicada en producción y
+los markers se validaron de extremo a extremo con Railway, GitHub Actions, Vercel,
+Azure Static Web Apps y Cloudflare Pages. El Command Center permanece local por
+decisión operativa y su despliegue no forma parte del cierre de este sprint. Ver
+`docs/sprints/sprint-08-incidents-deployments-walkthrough.md`.
  
 **Objetivo:** relacionar errores con cambios de producción y construir memoria operativa.
  

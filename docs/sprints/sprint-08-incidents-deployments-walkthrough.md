@@ -17,12 +17,18 @@ varios grupos de error, notas y conclusiones obligatorias.
 - `OperationsPage.tsx` carga bajo demanda y usa Recharts para el gráfico responsive,
   con una tabla textual equivalente.
 
-## Configuración externa pendiente
+## Configuración externa completada
 
-1. Generar valores aleatorios distintos para `DEPLOYMENT_INGEST_TOKEN` y
-   `RAILWAY_WEBHOOK_TOKEN` en Railway.
-2. Configurar cada servicio Railway con la URL documentada en el README.
-3. En workflows externos, enviar el contrato común únicamente después del éxito:
+Se generaron valores distintos para `DEPLOYMENT_INGEST_TOKEN` y
+`RAILWAY_WEBHOOK_TOKEN`, y se configuraron markers exitosos para:
+
+- los backends de Prensap, Farmami y Wheels House mediante webhooks de Railway;
+- los frontends de Farmami y Wheels House mediante eventos de Vercel y workflows
+  de GitHub Actions;
+- el frontend de Notizap desde su workflow de Azure Static Web Apps;
+- el frontend de Prensap después de su deploy con Wrangler a Cloudflare Pages.
+
+Los workflows externos envían el contrato común únicamente después del éxito:
 
 ```yaml
 - name: Registrar deploy en Atalaya
@@ -44,6 +50,17 @@ incluyen commit usan el ID estable del deployment como versión de respaldo.
 El decoder de webhooks acepta campos adicionales de Railway para mantener
 compatibilidad hacia adelante; los contratos privados continúan usando
 decodificación estricta.
+
+El Command Center continúa ejecutándose localmente por decisión operativa. Su
+despliegue es independiente del backend Watchman y no bloquea el cierre del sprint.
+
+## Validación de producción del 2026-08-11
+
+- PostgreSQL 18 y Watchman quedaron saludables en Railway, con Goose en versión 6.
+- Los webhooks reales de los tres backends devolvieron `201`.
+- Los workflows reales de los cuatro frontends devolvieron `201`.
+- La Bitácora recibió los markers sin duplicados y muestra ambiente, proveedor,
+  referencia, actor y enlaces disponibles.
 
 ## Validación local del 2026-08-11
 
