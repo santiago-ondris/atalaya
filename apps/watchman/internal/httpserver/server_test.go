@@ -12,6 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/auth"
+	"github.com/santiago-ondris/atalaya/apps/watchman/internal/domain"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/store"
 )
 
@@ -29,6 +30,9 @@ func (database stubDatabase) ListIntegrations(context.Context) ([]store.Integrat
 }
 func (database stubDatabase) Event(context.Context, string) (store.EventDetail, error) {
 	return store.EventDetail{}, pgx.ErrNoRows
+}
+func (database stubDatabase) ListDailyReports(context.Context, int) ([]domain.DailyReport, error) {
+	return nil, database.err
 }
 
 type recordingDatabase struct {

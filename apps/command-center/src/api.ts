@@ -67,6 +67,33 @@ export interface EventDetail extends EventSummary {
   interpretation?: Interpretation
   occurrences: EventOccurrence[]
 }
+export interface DailyReportApplication {
+  application: string
+  display_name: string
+  activity_count?: number
+  activity_kind: 'sessions' | 'page_views'
+  activity_source: string
+  activity_status: 'available' | 'unavailable'
+  activity_error?: string
+  error_count: number
+  occurrence_count: number
+  severity_counts: Record<'critical' | 'high' | 'medium' | 'low', number>
+  actionable_count: number
+}
+export interface DailyReport {
+  id: string
+  date: string
+  timezone: string
+  period_start: string
+  period_end: string
+  status: 'collecting' | 'pending' | 'processing' | 'sent' | 'expired'
+  attempts: number
+  last_error?: string
+  created_at: string
+  sent_at?: string
+  expired_at?: string
+  applications: DailyReportApplication[]
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
@@ -96,4 +123,5 @@ export const api = {
       `/api/v1/events?${query}`,
     ),
   event: (id: string) => request<EventDetail>(`/api/v1/events/${id}`),
+  reports: () => request<{ reports: DailyReport[] }>('/api/v1/reports?limit=30'),
 }

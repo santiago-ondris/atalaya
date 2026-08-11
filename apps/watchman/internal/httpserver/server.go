@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/auth"
+	"github.com/santiago-ondris/atalaya/apps/watchman/internal/domain"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/store"
 )
 
@@ -27,6 +28,7 @@ type Database interface {
 	ListEventPage(context.Context, store.EventFilter) (store.EventPage, error)
 	ListIntegrations(context.Context) ([]store.IntegrationStatus, error)
 	Event(context.Context, string) (store.EventDetail, error)
+	ListDailyReports(context.Context, int) ([]domain.DailyReport, error)
 }
 
 type Server struct {
@@ -54,6 +56,7 @@ func New(address string, database Database, authService *auth.Service, logger *s
 	mux.Handle("GET /api/v1/events", server.private(http.HandlerFunc(server.listPublicEvents)))
 	mux.Handle("GET /api/v1/events/{id}", server.private(http.HandlerFunc(server.eventDetail)))
 	mux.Handle("GET /api/v1/integrations", server.private(http.HandlerFunc(server.listIntegrations)))
+	mux.Handle("GET /api/v1/reports", server.private(http.HandlerFunc(server.listReports)))
 
 	server.httpServer = &http.Server{
 		Addr:              address,
@@ -248,6 +251,25 @@ func (s *Server) listIntegrations(w http.ResponseWriter, request *http.Request) 
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"integrations": integrations})
+}
+
+func (s *Server) listReports(w http.ResponseWriter, request *http.Request) {
+	limit := 30
+	if raw := request.URL.Query().Get("limit"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 1 || parsed > 100 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "limit must be between 1 and 100"})
+			return
+		}
+		limit = parsed
+	}
+	reports, err := s.database.ListDailyReports(request.Context(), limit)
+	if err != nil {
+		s.logger.Error("failed to list daily reports", "error", err)
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to list daily reports"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"reports": reports})
 }
 
 func (s *Server) eventDetail(w http.ResponseWriter, request *http.Request) {

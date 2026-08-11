@@ -106,6 +106,48 @@ func (client *Client) FetchEvents(ctx context.Context, cursor domain.Cursor) (do
 	return domain.EventBatch{Events: events, NextCursor: domain.Cursor{Value: end.Format(time.RFC3339Nano)}}, nil
 }
 
+func (client *Client) FetchActivity(ctx context.Context, start, end time.Time) (domain.ActivityMetric, error) {
+	token, err := client.accessToken(ctx)
+	if err != nil {
+		return domain.ActivityMetric{}, err
+	}
+	query := fmt.Sprintf(`AppPageViews
+| where _ResourceId =~ %q
+| where AppRoleName == "notizap-frontend"
+| where TimeGenerated >= datetime(%s) and TimeGenerated < datetime(%s)
+| summarize Sessions=dcountif(SessionId, isnotempty(SessionId))`, client.resourceID,
+		start.UTC().Format(time.RFC3339), end.UTC().Format(time.RFC3339))
+	payload, _ := json.Marshal(map[string]string{"query": query})
+	endpoint := fmt.Sprintf("%s/v1/workspaces/%s/query", client.logsBaseURL, url.PathEscape(client.workspaceID))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(payload))
+	if err != nil {
+		return domain.ActivityMetric{}, fmt.Errorf("build Azure activity request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	response, err := client.httpClient.Do(req)
+	if err != nil {
+		return domain.ActivityMetric{}, fmt.Errorf("query Azure activity: %w", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(response.Body, 2048))
+		return domain.ActivityMetric{}, fmt.Errorf("Azure activity returned %s: %s", response.Status, sanitize(string(body)))
+	}
+	var result queryResponse
+	if err := json.NewDecoder(io.LimitReader(response.Body, maxResponseBytes)).Decode(&result); err != nil {
+		return domain.ActivityMetric{}, fmt.Errorf("decode Azure activity: %w", err)
+	}
+	if len(result.Tables) != 1 || len(result.Tables[0].Rows) != 1 || len(result.Tables[0].Rows[0]) != 1 {
+		return domain.ActivityMetric{}, errors.New("Azure activity result has an unexpected shape")
+	}
+	value, ok := result.Tables[0].Rows[0][0].(float64)
+	if !ok {
+		return domain.ActivityMetric{}, errors.New("Azure activity session count is not numeric")
+	}
+	return domain.ActivityMetric{Count: int64(value), Kind: "sessions", Source: "application_insights"}, nil
+}
+
 func (client *Client) accessToken(ctx context.Context) (string, error) {
 	client.mu.Lock()
 	defer client.mu.Unlock()

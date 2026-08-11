@@ -411,6 +411,8 @@ Alcance:
 **Demo:** iniciar sesión, ver el estado general y navegar desde una aplicación hasta el detalle de un error real.
  
 ### Sprint 7 — Reportes diarios y aperturas
+
+**Estado:** completado el 2026-08-10. Ver `docs/sprints/sprint-07-daily-reports-walkthrough.md`.
  
 **Objetivo:** recibir a las 20:00 ARG un resumen diario confiable y accionable.
  
@@ -425,7 +427,6 @@ Alcance:
 - No arrastrar reportes vencidos al día siguiente.
 - Garantizar idempotencia para no enviar dos veces el mismo reporte.
 - Mostrar historial de reportes en el command center.
-**Demo:** generar un reporte de un día de prueba, simular un fallo de Telegram y verificar el reintento sin duplicados.
  
 ### Sprint 8 — Incidentes y deploy markers
  
@@ -441,7 +442,6 @@ Alcance:
 - Automatizar markers desde GitHub Actions/Railway cuando sea viable.
 - Diseñar un mecanismo explícito para el deploy manual del backend de Notizap.
 - Correlacionar visualmente deploys con spikes de errores.
-**Demo:** registrar un deploy, observar un evento posterior y documentar su resolución como incidente.
  
 ### Sprint 9 — Diagramas interactivos de arquitectura
  

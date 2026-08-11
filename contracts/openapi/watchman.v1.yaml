@@ -60,6 +60,15 @@ paths:
       summary: Obtener salud de fuentes y checkpoints
       security: [{ cookieAuth: [] }]
       responses: { '200': { description: Integraciones operativas } }
+  /reports:
+    get:
+      summary: Listar el historial de reportes diarios
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 30 } }
+      responses:
+        '200':
+          description: Reportes diarios con la fotografía de cada aplicación
 components:
   securitySchemes:
     cookieAuth:

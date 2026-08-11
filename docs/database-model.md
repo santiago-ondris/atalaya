@@ -4,7 +4,8 @@
 
 ```text
 applications
-    └── integrations
+	├── daily_report_applications
+	└── integrations
           ├── source_checkpoints
           └── error_groups
                 ├── error_events
@@ -13,6 +14,10 @@ applications
                 └── alert_windows
                       └── notification_jobs
                             └── notification_delivery_attempts
+
+daily_reports
+	├── daily_report_applications
+	└── daily_report_delivery_attempts
 ```
 
 ## Decisiones importantes
@@ -70,3 +75,14 @@ token del bot ni otro secreto.
 Los costos usan `numeric`, no punto flotante. `NULL` significa que el proveedor no
 dio información suficiente para estimarlos; cero significa costo conocido igual a
 cero.
+
+### Reportes diarios
+
+`daily_reports.report_date` es la clave idempotente del día calendario argentino.
+Cada reporte congela sus límites UTC, estado, próximo intento y resultado de
+Telegram. `daily_report_applications` conserva la fotografía de errores y actividad
+por aplicación; una actividad `unavailable` mantiene `activity_count` en `NULL`
+para distinguir una fuente caída de un día con cero sesiones.
+
+`daily_report_delivery_attempts` audita cada envío. Los fallos transitorios se
+reprograman 30 minutos y los reportes que alcanzan `period_end` pasan a `expired`.

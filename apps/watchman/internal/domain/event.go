@@ -124,3 +124,38 @@ type DeliveryResult struct {
 	MessageID  int64
 	HTTPStatus int
 }
+
+type ActivityMetric struct {
+	Count  int64
+	Kind   string
+	Source string
+}
+
+type DailyReportApplication struct {
+	Application     string           `json:"application"`
+	DisplayName     string           `json:"display_name"`
+	ActivityCount   *int64           `json:"activity_count,omitempty"`
+	ActivityKind    string           `json:"activity_kind"`
+	ActivitySource  string           `json:"activity_source"`
+	ActivityStatus  string           `json:"activity_status"`
+	ActivityError   string           `json:"activity_error,omitempty"`
+	ErrorCount      int64            `json:"error_count"`
+	OccurrenceCount int64            `json:"occurrence_count"`
+	SeverityCounts  map[string]int64 `json:"severity_counts"`
+	ActionableCount int64            `json:"actionable_count"`
+}
+
+type DailyReport struct {
+	ID           string                   `json:"id"`
+	Date         string                   `json:"date"`
+	Timezone     string                   `json:"timezone"`
+	PeriodStart  time.Time                `json:"period_start"`
+	PeriodEnd    time.Time                `json:"period_end"`
+	Status       string                   `json:"status"`
+	Attempts     int                      `json:"attempts"`
+	LastError    string                   `json:"last_error,omitempty"`
+	CreatedAt    time.Time                `json:"created_at"`
+	SentAt       *time.Time               `json:"sent_at,omitempty"`
+	ExpiredAt    *time.Time               `json:"expired_at,omitempty"`
+	Applications []DailyReportApplication `json:"applications"`
+}

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-export type View = 'overview' | 'events' | 'system'
+export type View = 'overview' | 'events' | 'reports' | 'system'
 
 interface AppLayoutProps {
   view: View
@@ -16,6 +16,7 @@ const navigationItems: Array<{
 }> = [
   { view: 'overview', label: 'Overview', icon: 'ti-layout-dashboard' },
   { view: 'events', label: 'Eventos', icon: 'ti-alert-triangle' },
+  { view: 'reports', label: 'Reportes', icon: 'ti-file-report' },
   { view: 'system', label: 'Sistema', icon: 'ti-activity' },
 ]
 

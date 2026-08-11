@@ -25,6 +25,12 @@ type Config struct {
 	ApplicationInsights ApplicationInsightsConfig
 	Telegram            TelegramConfig
 	Auth                AuthConfig
+	Reporting           ReportingConfig
+}
+
+type ReportingConfig struct {
+	SchedulerInterval time.Duration
+	WorkerID          string
 }
 
 type AuthConfig struct {
@@ -144,6 +150,7 @@ func Load() (Config, error) {
 			PasswordHash: os.Getenv("ATALAYA_ADMIN_PASSWORD_HASH"),
 			CookieSecure: envOrDefault("ATALAYA_COOKIE_SECURE", "true") == "true",
 		},
+		Reporting: ReportingConfig{WorkerID: envOrDefault("DAILY_REPORT_WORKER_ID", "watchman-daily-report-1")},
 	}
 	var err error
 	cfg.PollInterval, err = durationSeconds("POLL_INTERVAL_SECONDS", 120)
@@ -187,6 +194,10 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	cfg.Auth.SessionDuration, err = durationSeconds("ATALAYA_SESSION_DURATION_SECONDS", 86400)
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.Reporting.SchedulerInterval, err = durationSeconds("DAILY_REPORT_SCHEDULER_SECONDS", 30)
 	if err != nil {
 		return Config{}, err
 	}

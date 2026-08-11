@@ -19,6 +19,7 @@ import (
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/interpreter"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/notification"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/poller"
+	"github.com/santiago-ondris/atalaya/apps/watchman/internal/reporting"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/sentry"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/store"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/telegram"
@@ -45,12 +46,14 @@ func main() {
 	defer pool.Close()
 
 	postgresStore := store.NewPostgres(pool)
+	activitySources := map[string][]reporting.ActivitySource{}
 	interpreterClient := interpreter.NewClient(cfg.Interpreter.URL, cfg.Interpreter.Timeout, nil)
 	go interpreter.NewWorker(postgresStore, interpreterClient, cfg.Interpreter.WorkerID, cfg.Interpreter.PollInterval,
 		cfg.Telegram.InterpreterCooldown, logger).Run(ctx)
 	logger.Info("interpretation worker enabled", "interpreter_url", cfg.Interpreter.URL)
+	var telegramClient *telegram.Client
 	if cfg.Telegram.Enabled() {
-		telegramClient := telegram.NewClient(cfg.Telegram.BotToken, cfg.Telegram.ChatID, cfg.Telegram.Timeout, nil)
+		telegramClient = telegram.NewClient(cfg.Telegram.BotToken, cfg.Telegram.ChatID, cfg.Telegram.Timeout, nil)
 		links := notification.Links{AtalayaBaseURL: cfg.Telegram.AtalayaPublicURL,
 			SentryBaseURL: cfg.Sentry.BaseURL, SentryOrganization: cfg.Sentry.OrgSlug}
 		go notification.NewWorker(postgresStore, telegramClient, cfg.Telegram.WorkerID,
@@ -78,6 +81,7 @@ func main() {
 					cfg.Sentry.AuthToken, integration.Environments, runtime.MonitoringStartedAt, requestGate, nil)
 				go poller.New(sentryClient, postgresStore, runtime.ID, application.Slug, integration.Component, "sentry",
 					cfg.PollInterval, logger).Run(ctx)
+				activitySources[application.Slug] = append(activitySources[application.Slug], sentryClient)
 				enabled++
 				logger.Info("Sentry polling enabled", "application", application.Slug, "component", integration.Component,
 					"project", integration.Project, "environments", integration.Environments, "interval", cfg.PollInterval)
@@ -102,11 +106,34 @@ func main() {
 			client := applicationinsights.NewClient(azure.TokenURL, azure.LogsURL, azure.TenantID, azure.ClientID,
 				azure.ClientSecret, azure.WorkspaceID, azure.ResourceID, azure.Environment, runtime.MonitoringStartedAt, azure.Overlap, nil)
 			go poller.New(client, postgresStore, runtime.ID, "notizap", azure.Component, "application_insights", cfg.PollInterval, logger).Run(ctx)
+			activitySources["notizap"] = append(activitySources["notizap"], client)
 			logger.Info("Application Insights polling enabled", "application", "notizap", "component", azure.Component,
 				"workspace_id", azure.WorkspaceID, "interval", cfg.PollInterval, "overlap", azure.Overlap)
 		}
 	} else {
 		logger.Warn("Application Insights polling disabled", "reason", "Azure credentials and workspace are not configured")
+	}
+
+	reportSources := make([]reporting.Source, 0, len(activitySources))
+	for application, providers := range activitySources {
+		sourceName := "sentry"
+		if application == "notizap" {
+			sourceName = "application_insights"
+		}
+		reportSources = append(reportSources, reporting.Source{Application: application, Provider: reporting.SumSources{
+			Sources: providers, Kind: "sessions", Source: sourceName,
+		}})
+	}
+	reportScheduler, scheduleErr := reporting.NewScheduler(postgresStore, reportSources, cfg.Reporting.SchedulerInterval, logger)
+	if scheduleErr != nil {
+		logger.Error("failed to configure daily report scheduler", "error", scheduleErr)
+	} else {
+		go reportScheduler.Run(ctx)
+		logger.Info("daily report scheduler enabled", "timezone", reporting.Timezone, "interval", cfg.Reporting.SchedulerInterval)
+	}
+	if telegramClient != nil {
+		go reporting.NewWorker(postgresStore, telegramClient, cfg.Reporting.WorkerID, cfg.Telegram.PollInterval, logger).Run(ctx)
+		logger.Info("daily report delivery worker enabled")
 	}
 
 	authService := auth.New(postgresStore, cfg.Auth.PasswordHash, cfg.Auth.SessionDuration)

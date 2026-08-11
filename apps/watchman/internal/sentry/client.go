@@ -113,6 +113,46 @@ func (client *Client) FetchEvents(ctx context.Context, cursor domain.Cursor) (do
 	return domain.EventBatch{Events: events, NextCursor: domain.Cursor{Value: next}}, nil
 }
 
+func (client *Client) FetchActivity(ctx context.Context, start, end time.Time) (domain.ActivityMetric, error) {
+	if err := client.gate.acquire(ctx); err != nil {
+		return domain.ActivityMetric{}, fmt.Errorf("wait for Sentry request slot: %w", err)
+	}
+	defer client.gate.release()
+	endpoint := fmt.Sprintf("%s/api/0/organizations/%s/sessions/", client.baseURL, url.PathEscape(client.organization))
+	query := url.Values{
+		"project": {client.project}, "field": {"sum(session)"}, "groupBy": {"session.status"},
+		"interval": {"1h"}, "includeSeries": {"0"}, "start": {start.UTC().Format(time.RFC3339)}, "end": {end.UTC().Format(time.RFC3339)},
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint+"?"+query.Encode(), nil)
+	if err != nil {
+		return domain.ActivityMetric{}, fmt.Errorf("build Sentry sessions request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+client.token)
+	req.Header.Set("Accept", "application/json")
+	response, err := client.httpClient.Do(req)
+	if err != nil {
+		return domain.ActivityMetric{}, fmt.Errorf("request Sentry sessions: %w", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(response.Body, 2048))
+		return domain.ActivityMetric{}, fmt.Errorf("Sentry sessions returned %s: %s", response.Status, sanitizeText(string(body)))
+	}
+	var payload struct {
+		Groups []struct {
+			Totals map[string]float64 `json:"totals"`
+		} `json:"groups"`
+	}
+	if err := json.NewDecoder(io.LimitReader(response.Body, maxResponseBytes)).Decode(&payload); err != nil {
+		return domain.ActivityMetric{}, fmt.Errorf("decode Sentry sessions: %w", err)
+	}
+	var count int64
+	for _, group := range payload.Groups {
+		count += int64(group.Totals["sum(session)"])
+	}
+	return domain.ActivityMetric{Count: count, Kind: "sessions", Source: "sentry"}, nil
+}
+
 type apiEvent struct {
 	EventID     string          `json:"eventID"`
 	Type        string          `json:"type"`

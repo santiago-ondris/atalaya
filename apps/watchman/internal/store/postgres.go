@@ -37,6 +37,207 @@ func (store *Postgres) RevokeSession(ctx context.Context, tokenHash []byte, now 
 	return err
 }
 
+func (store *Postgres) EnsureDailyReport(ctx context.Context, date, timezone string, start, end time.Time) (domain.DailyReport, bool, error) {
+	tx, err := store.pool.Begin(ctx)
+	if err != nil {
+		return domain.DailyReport{}, false, err
+	}
+	defer tx.Rollback(ctx)
+	var report domain.DailyReport
+	err = tx.QueryRow(ctx, `INSERT INTO daily_reports (report_date,timezone,period_start,period_end)
+		VALUES ($1,$2,$3,$4) ON CONFLICT (report_date) DO UPDATE SET report_date=EXCLUDED.report_date
+		RETURNING id::text,report_date::text,timezone,period_start,period_end,status,attempts,COALESCE(last_error,''),created_at,sent_at,expired_at`,
+		date, timezone, start, end).Scan(&report.ID, &report.Date, &report.Timezone, &report.PeriodStart, &report.PeriodEnd,
+		&report.Status, &report.Attempts, &report.LastError, &report.CreatedAt, &report.SentAt, &report.ExpiredAt)
+	if err != nil {
+		return domain.DailyReport{}, false, fmt.Errorf("ensure daily report: %w", err)
+	}
+	if report.Status == "collecting" {
+		_, err = tx.Exec(ctx, `INSERT INTO daily_report_applications
+			(report_id,application_id,activity_kind,activity_source,activity_status,error_count,occurrence_count,
+			 critical_count,high_count,medium_count,low_count,actionable_count)
+			SELECT $1,a.id,'sessions',CASE WHEN a.slug='notizap' THEN 'application_insights' ELSE 'sentry' END,'unavailable',
+			COUNT(DISTINCT e.error_group_id),COUNT(e.id),
+			COUNT(*) FILTER (WHERE x.severity='critical'),COUNT(*) FILTER (WHERE x.severity='high'),
+			COUNT(*) FILTER (WHERE x.severity='medium'),COUNT(*) FILTER (WHERE x.severity='low'),
+			COUNT(*) FILTER (WHERE x.actionable=true)
+			FROM applications a
+			LEFT JOIN integrations src ON src.application_id=a.id
+			LEFT JOIN error_events e ON e.integration_id=src.id AND e.occurred_at >= $2 AND e.occurred_at < $3
+			LEFT JOIN LATERAL (SELECT severity,actionable FROM interpretations WHERE error_event_id=e.id ORDER BY created_at DESC LIMIT 1) x ON true
+			GROUP BY a.id,a.slug
+			ON CONFLICT (report_id,application_id) DO UPDATE SET
+			error_count=EXCLUDED.error_count,occurrence_count=EXCLUDED.occurrence_count,
+			critical_count=EXCLUDED.critical_count,high_count=EXCLUDED.high_count,medium_count=EXCLUDED.medium_count,
+			low_count=EXCLUDED.low_count,actionable_count=EXCLUDED.actionable_count`, report.ID, start, end)
+		if err != nil {
+			return domain.DailyReport{}, false, fmt.Errorf("snapshot daily errors: %w", err)
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return domain.DailyReport{}, false, err
+	}
+	return report, report.Status == "collecting", nil
+}
+
+func (store *Postgres) SaveDailyActivity(ctx context.Context, reportID, application string, metric domain.ActivityMetric, cause error) error {
+	status, message := "available", ""
+	var count *int64 = &metric.Count
+	if cause != nil {
+		status, message, count = "unavailable", cause.Error(), nil
+	}
+	result, err := store.pool.Exec(ctx, `UPDATE daily_report_applications item SET
+		activity_count=$3,activity_kind=COALESCE(NULLIF($4,''),activity_kind),activity_source=COALESCE(NULLIF($5,''),activity_source),
+		activity_status=$6,activity_error=NULLIF($7,'') FROM applications a
+		WHERE item.application_id=a.id AND item.report_id=$1 AND a.slug=$2`, reportID, application, count, metric.Kind, metric.Source, status, message)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() != 1 {
+		return fmt.Errorf("daily report application %q not found", application)
+	}
+	return nil
+}
+
+func (store *Postgres) FinalizeDailyReport(ctx context.Context, reportID string) error {
+	result, err := store.pool.Exec(ctx, `UPDATE daily_reports SET status='pending',next_attempt_at=now(),updated_at=now()
+		WHERE id=$1 AND status='collecting' AND (SELECT count(*) FROM daily_report_applications WHERE report_id=$1)=4`, reportID)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() != 1 {
+		return errors.New("daily report is incomplete or no longer collecting")
+	}
+	return nil
+}
+
+func (store *Postgres) ClaimDailyReport(ctx context.Context, workerID string, now time.Time) (domain.DailyReport, error) {
+	_, err := store.pool.Exec(ctx, `UPDATE daily_reports SET status='expired',expired_at=$1,updated_at=$1
+		WHERE status IN ('collecting','pending','processing') AND period_end <= $1`, now)
+	if err != nil {
+		return domain.DailyReport{}, err
+	}
+	tx, err := store.pool.Begin(ctx)
+	if err != nil {
+		return domain.DailyReport{}, err
+	}
+	defer tx.Rollback(ctx)
+	var report domain.DailyReport
+	err = tx.QueryRow(ctx, `SELECT id::text,report_date::text,timezone,period_start,period_end,status,attempts+1,
+		COALESCE(last_error,''),created_at,sent_at,expired_at FROM daily_reports
+		WHERE period_end>$1 AND ((status='pending' AND next_attempt_at<=$1) OR (status='processing' AND updated_at<$1-interval '5 minutes'))
+		ORDER BY next_attempt_at,created_at FOR UPDATE SKIP LOCKED LIMIT 1`, now).Scan(&report.ID, &report.Date, &report.Timezone,
+		&report.PeriodStart, &report.PeriodEnd, &report.Status, &report.Attempts, &report.LastError, &report.CreatedAt, &report.SentAt, &report.ExpiredAt)
+	if err != nil {
+		return domain.DailyReport{}, err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE daily_reports SET status='processing',attempts=$2,updated_at=$3 WHERE id=$1`, report.ID, report.Attempts, now); err != nil {
+		return domain.DailyReport{}, err
+	}
+	report.Status = "processing"
+	apps, err := loadDailyReportApplications(ctx, tx, report.ID)
+	if err != nil {
+		return domain.DailyReport{}, err
+	}
+	report.Applications = apps
+	if err := tx.Commit(ctx); err != nil {
+		return domain.DailyReport{}, err
+	}
+	return report, nil
+}
+
+func loadDailyReportApplications(ctx context.Context, queryer interface {
+	Query(context.Context, string, ...any) (pgx.Rows, error)
+}, reportID string) ([]domain.DailyReportApplication, error) {
+	rows, err := queryer.Query(ctx, `SELECT a.slug,a.display_name,r.activity_count,r.activity_kind,r.activity_source,r.activity_status,
+		COALESCE(r.activity_error,''),r.error_count,r.occurrence_count,r.critical_count,r.high_count,r.medium_count,r.low_count,r.actionable_count
+		FROM daily_report_applications r JOIN applications a ON a.id=r.application_id WHERE r.report_id=$1 ORDER BY a.display_name`, reportID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var apps []domain.DailyReportApplication
+	for rows.Next() {
+		var app domain.DailyReportApplication
+		var critical, high, medium, low int64
+		if err := rows.Scan(&app.Application, &app.DisplayName, &app.ActivityCount, &app.ActivityKind, &app.ActivitySource, &app.ActivityStatus,
+			&app.ActivityError, &app.ErrorCount, &app.OccurrenceCount, &critical, &high, &medium, &low, &app.ActionableCount); err != nil {
+			return nil, err
+		}
+		app.SeverityCounts = map[string]int64{"critical": critical, "high": high, "medium": medium, "low": low}
+		apps = append(apps, app)
+	}
+	return apps, rows.Err()
+}
+
+func (store *Postgres) CompleteDailyReport(ctx context.Context, report domain.DailyReport, started time.Time, result domain.DeliveryResult) error {
+	tx, err := store.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, `INSERT INTO daily_report_delivery_attempts
+		(report_id,attempt_number,started_at,outcome,http_status,telegram_message_id) VALUES ($1,$2,$3,'sent',$4,$5)`,
+		report.ID, report.Attempts, started, result.HTTPStatus, result.MessageID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE daily_reports SET status='sent',sent_at=now(),telegram_message_id=$2,last_error=NULL,updated_at=now() WHERE id=$1`, report.ID, result.MessageID); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func (store *Postgres) FailDailyReport(ctx context.Context, report domain.DailyReport, started time.Time, cause error, retryable bool, httpStatus int) error {
+	now := time.Now()
+	status, outcome, next, expiredAt := dailyReportFailureState(now, report, retryable)
+	tx, err := store.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+	if _, err := tx.Exec(ctx, `INSERT INTO daily_report_delivery_attempts
+		(report_id,attempt_number,started_at,outcome,http_status,error_class,error_message) VALUES ($1,$2,$3,$4,NULLIF($5,0),$6,$7)`,
+		report.ID, report.Attempts, started, outcome, httpStatus, fmt.Sprintf("%T", cause), cause.Error()); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE daily_reports SET status=$2,next_attempt_at=$3,expired_at=$4,last_error=$5,updated_at=now() WHERE id=$1`,
+		report.ID, status, next, expiredAt, cause.Error()); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func dailyReportFailureState(now time.Time, report domain.DailyReport, retryable bool) (string, string, time.Time, *time.Time) {
+	next := now.Add(30 * time.Minute)
+	if retryable && report.Attempts < 8 && next.Before(report.PeriodEnd) {
+		return "pending", "retryable_failure", next, nil
+	}
+	return "expired", "permanent_failure", next, &now
+}
+
+func (store *Postgres) ListDailyReports(ctx context.Context, limit int) ([]domain.DailyReport, error) {
+	rows, err := store.pool.Query(ctx, `SELECT id::text,report_date::text,timezone,period_start,period_end,status,attempts,
+		COALESCE(last_error,''),created_at,sent_at,expired_at FROM daily_reports ORDER BY report_date DESC LIMIT $1`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var reports []domain.DailyReport
+	for rows.Next() {
+		var report domain.DailyReport
+		if err := rows.Scan(&report.ID, &report.Date, &report.Timezone, &report.PeriodStart, &report.PeriodEnd, &report.Status, &report.Attempts,
+			&report.LastError, &report.CreatedAt, &report.SentAt, &report.ExpiredAt); err != nil {
+			return nil, err
+		}
+		report.Applications, err = loadDailyReportApplications(ctx, store.pool, report.ID)
+		if err != nil {
+			return nil, err
+		}
+		reports = append(reports, report)
+	}
+	return reports, rows.Err()
+}
+
 type SentryIntegrationSpec struct {
 	Application, Component, DisplayName, Organization, Project string
 	Environments                                               []string

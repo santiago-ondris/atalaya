@@ -6,6 +6,7 @@ import { LoginPage } from './features/auth/LoginPage'
 import { EventDetailPage } from './features/events/EventDetailPage'
 import { EventsPage } from './features/events/EventsPage'
 import { OverviewPage } from './features/overview/OverviewPage'
+import { ReportsPage } from './features/reports/ReportsPage'
 import { SystemPage } from './features/system/SystemPage'
 import './App.css'
 
@@ -79,6 +80,10 @@ function App() {
 
     if (activeView === 'system') {
       return <SystemPage />
+    }
+
+    if (activeView === 'reports') {
+      return <ReportsPage />
     }
 
     if (overviewError) {
