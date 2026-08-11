@@ -190,7 +190,7 @@ func TestRailwayRedeployUsesDeploymentIDWhenCommitIsMissing(t *testing.T) {
 	server := newTestServer(database)
 	server.ConfigureDeploymentHooks("", "railway-secret")
 	response := httptest.NewRecorder()
-	body := `{"type":"Deployment.deployed","timestamp":"2026-08-11T12:00:00Z","details":{"status":"SUCCESS"},"resource":{"environment":{"name":"production"},"deployment":{"id":"railway-deploy-1"}}}`
+	body := `{"type":"Deployment.deployed","timestamp":"2026-08-11T12:00:00Z","details":{"status":"SUCCESS"},"resource":{"workspace":{"id":"workspace-1","name":"Workspace"},"project":{"id":"project-1","name":"Prensap"},"service":{"id":"service-1","name":"backend"},"environment":{"name":"production"},"deployment":{"id":"railway-deploy-1"}},"severity":"INFO"}`
 	request := httptest.NewRequest(http.MethodPost, "/hooks/v1/deployments/railway/prensap/backend?token=railway-secret", strings.NewReader(body))
 	server.httpServer.Handler.ServeHTTP(response, request)
 	if response.Code != http.StatusCreated {

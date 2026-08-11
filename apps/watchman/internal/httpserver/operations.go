@@ -25,6 +25,15 @@ func decodeBody(w http.ResponseWriter, r *http.Request, target any) bool {
 	return true
 }
 
+func decodeWebhookBody(w http.ResponseWriter, r *http.Request, target any) bool {
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10))
+	if err := decoder.Decode(target); err != nil {
+		writeJSON(w, 400, map[string]string{"error": "invalid request"})
+		return false
+	}
+	return true
+}
+
 func operationError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
@@ -261,7 +270,7 @@ func (s *Server) ingestRailwayDeployment(w http.ResponseWriter, r *http.Request)
 			} `json:"environment"`
 		} `json:"resource"`
 	}
-	if !decodeBody(w, r, &payload) {
+	if !decodeWebhookBody(w, r, &payload) {
 		return
 	}
 	if !strings.EqualFold(payload.Details.Status, "success") && !strings.Contains(strings.ToLower(payload.Type), "success") {
