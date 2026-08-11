@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { api, type Overview } from './api'
 import { AppLayout, type View } from './components/layout/AppLayout'
 import { ErrorState, LoadingState } from './components/feedback/FeedbackState'
@@ -9,6 +9,12 @@ import { OverviewPage } from './features/overview/OverviewPage'
 import { ReportsPage } from './features/reports/ReportsPage'
 import { SystemPage } from './features/system/SystemPage'
 import './App.css'
+
+const OperationsPage = lazy(() =>
+  import('./features/operations/OperationsPage').then((module) => ({
+    default: module.OperationsPage,
+  })),
+)
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
@@ -84,6 +90,14 @@ function App() {
 
     if (activeView === 'reports') {
       return <ReportsPage />
+    }
+
+    if (activeView === 'operations') {
+      return (
+        <Suspense fallback={<LoadingState />}>
+          <OperationsPage />
+        </Suspense>
+      )
     }
 
     if (overviewError) {

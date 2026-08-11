@@ -29,6 +29,17 @@ type Database interface {
 	ListIntegrations(context.Context) ([]store.IntegrationStatus, error)
 	Event(context.Context, string) (store.EventDetail, error)
 	ListDailyReports(context.Context, int) ([]domain.DailyReport, error)
+	ListErrorGroups(context.Context, string, string, int) ([]store.ErrorGroupSummary, error)
+	CreateIncident(context.Context, string, []string) (store.Incident, error)
+	ListIncidents(context.Context, store.IncidentFilter) ([]store.Incident, error)
+	Incident(context.Context, string) (store.Incident, error)
+	AddIncidentNote(context.Context, string, string) error
+	ChangeIncidentStatus(context.Context, string, string, string) error
+	AddIncidentGroup(context.Context, string, string) error
+	RemoveIncidentGroup(context.Context, string, string) error
+	SaveDeployment(context.Context, store.DeploymentInput) (store.Deployment, bool, error)
+	ListDeployments(context.Context, string, string, time.Time, time.Time) ([]store.Deployment, error)
+	OperationsTimeline(context.Context, string, string, time.Time, time.Time, time.Duration) (store.OperationsTimeline, error)
 }
 
 type Server struct {
@@ -38,6 +49,8 @@ type Server struct {
 	readinessTimeout time.Duration
 	auth             *auth.Service
 	cookieSecure     bool
+	deployToken      string
+	railwayToken     string
 }
 
 func New(address string, database Database, authService *auth.Service, logger *slog.Logger, readinessTimeout time.Duration, cookieSecure bool) *Server {
@@ -57,6 +70,19 @@ func New(address string, database Database, authService *auth.Service, logger *s
 	mux.Handle("GET /api/v1/events/{id}", server.private(http.HandlerFunc(server.eventDetail)))
 	mux.Handle("GET /api/v1/integrations", server.private(http.HandlerFunc(server.listIntegrations)))
 	mux.Handle("GET /api/v1/reports", server.private(http.HandlerFunc(server.listReports)))
+	mux.Handle("GET /api/v1/error-groups", server.private(http.HandlerFunc(server.listErrorGroups)))
+	mux.Handle("GET /api/v1/incidents", server.private(http.HandlerFunc(server.listIncidents)))
+	mux.Handle("POST /api/v1/incidents", server.private(http.HandlerFunc(server.createIncident)))
+	mux.Handle("GET /api/v1/incidents/{id}", server.private(http.HandlerFunc(server.incidentDetail)))
+	mux.Handle("POST /api/v1/incidents/{id}/notes", server.private(http.HandlerFunc(server.addIncidentNote)))
+	mux.Handle("PATCH /api/v1/incidents/{id}/status", server.private(http.HandlerFunc(server.changeIncidentStatus)))
+	mux.Handle("POST /api/v1/incidents/{id}/groups/{groupId}", server.private(http.HandlerFunc(server.addIncidentGroup)))
+	mux.Handle("DELETE /api/v1/incidents/{id}/groups/{groupId}", server.private(http.HandlerFunc(server.removeIncidentGroup)))
+	mux.Handle("GET /api/v1/deployments", server.private(http.HandlerFunc(server.listDeployments)))
+	mux.Handle("POST /api/v1/deployments", server.private(http.HandlerFunc(server.createManualDeployment)))
+	mux.Handle("GET /api/v1/operations/timeline", server.private(http.HandlerFunc(server.operationsTimeline)))
+	mux.HandleFunc("POST /hooks/v1/deployments", server.ingestDeployment)
+	mux.HandleFunc("POST /hooks/v1/deployments/railway/{secret}/{application}/{component}", server.ingestRailwayDeployment)
 
 	server.httpServer = &http.Server{
 		Addr:              address,
@@ -66,6 +92,10 @@ func New(address string, database Database, authService *auth.Service, logger *s
 	}
 
 	return server
+}
+
+func (s *Server) ConfigureDeploymentHooks(token, railwayToken string) {
+	s.deployToken, s.railwayToken = token, railwayToken
 }
 
 const sessionCookie = "atalaya_session"
@@ -329,7 +359,11 @@ func correlation(logger *slog.Logger, next http.Handler) http.Handler {
 		w.Header().Set(correlationIDHeader, correlationID)
 		ctx := context.WithValue(r.Context(), correlationIDContextKey{}, correlationID)
 		next.ServeHTTP(w, r.WithContext(ctx))
-		logger.Info("HTTP request", "method", r.Method, "path", r.URL.Path,
+		path := r.URL.Path
+		if strings.HasPrefix(path, "/hooks/v1/deployments/railway/") {
+			path = "/hooks/v1/deployments/railway/[redacted]"
+		}
+		logger.Info("HTTP request", "method", r.Method, "path", path,
 			"correlation_id", correlationID,
 			"duration_ms", time.Since(startedAt).Milliseconds())
 	})

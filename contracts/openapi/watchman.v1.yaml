@@ -69,6 +69,52 @@ paths:
       responses:
         '200':
           description: Reportes diarios con la fotografía de cada aplicación
+  /error-groups:
+    get:
+      summary: Buscar grupos de error para asociarlos a incidentes
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - { name: application, in: query, schema: { type: string } }
+        - { name: q, in: query, schema: { type: string } }
+      responses: { '200': { description: Grupos ordenados por última aparición } }
+  /incidents:
+    get:
+      summary: Listar incidentes
+      security: [{ cookieAuth: [] }]
+      responses: { '200': { description: Historial de incidentes } }
+    post:
+      summary: Crear un incidente en investigación
+      security: [{ cookieAuth: [] }]
+      responses: { '201': { description: Incidente creado }, '409': { description: Un grupo ya está bajo investigación } }
+  /incidents/{id}:
+    get:
+      summary: Obtener grupos y bitácora inmutable del incidente
+      security: [{ cookieAuth: [] }]
+      responses: { '200': { description: Detalle del incidente } }
+  /incidents/{id}/notes:
+    post:
+      summary: Agregar una nota al incidente
+      security: [{ cookieAuth: [] }]
+      responses: { '201': { description: Nota agregada } }
+  /incidents/{id}/status:
+    patch:
+      summary: Resolver, marcar como ruido o reabrir con una conclusión obligatoria
+      security: [{ cookieAuth: [] }]
+      responses: { '200': { description: Estado actualizado }, '409': { description: Reapertura incompatible } }
+  /deployments:
+    get:
+      summary: Listar deploy markers
+      security: [{ cookieAuth: [] }]
+      responses: { '200': { description: Deploys exitosos de producción } }
+    post:
+      summary: Registrar un deploy manual exitoso
+      security: [{ cookieAuth: [] }]
+      responses: { '201': { description: Deployment creado } }
+  /operations/timeline:
+    get:
+      summary: Obtener buckets de errores, deploys e incidentes por aplicación
+      security: [{ cookieAuth: [] }]
+      responses: { '200': { description: Bitácora temporal } }
 components:
   securitySchemes:
     cookieAuth:

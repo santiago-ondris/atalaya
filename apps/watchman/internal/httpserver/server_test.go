@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -34,10 +35,53 @@ func (database stubDatabase) Event(context.Context, string) (store.EventDetail, 
 func (database stubDatabase) ListDailyReports(context.Context, int) ([]domain.DailyReport, error) {
 	return nil, database.err
 }
+func (database stubDatabase) ListErrorGroups(context.Context, string, string, int) ([]store.ErrorGroupSummary, error) {
+	return nil, database.err
+}
+func (database stubDatabase) CreateIncident(context.Context, string, []string) (store.Incident, error) {
+	return store.Incident{}, database.err
+}
+func (database stubDatabase) ListIncidents(context.Context, store.IncidentFilter) ([]store.Incident, error) {
+	return nil, database.err
+}
+func (database stubDatabase) Incident(context.Context, string) (store.Incident, error) {
+	return store.Incident{}, pgx.ErrNoRows
+}
+func (database stubDatabase) AddIncidentNote(context.Context, string, string) error {
+	return database.err
+}
+func (database stubDatabase) ChangeIncidentStatus(context.Context, string, string, string) error {
+	return database.err
+}
+func (database stubDatabase) AddIncidentGroup(context.Context, string, string) error {
+	return database.err
+}
+func (database stubDatabase) RemoveIncidentGroup(context.Context, string, string) error {
+	return database.err
+}
+func (database stubDatabase) SaveDeployment(context.Context, store.DeploymentInput) (store.Deployment, bool, error) {
+	return store.Deployment{}, false, database.err
+}
+func (database stubDatabase) ListDeployments(context.Context, string, string, time.Time, time.Time) ([]store.Deployment, error) {
+	return nil, database.err
+}
+func (database stubDatabase) OperationsTimeline(context.Context, string, string, time.Time, time.Time, time.Duration) (store.OperationsTimeline, error) {
+	return store.OperationsTimeline{}, database.err
+}
 
 type recordingDatabase struct {
 	stubDatabase
 	filter store.EventFilter
+}
+
+type deploymentDatabase struct {
+	stubDatabase
+	input store.DeploymentInput
+}
+
+func (database *deploymentDatabase) SaveDeployment(_ context.Context, input store.DeploymentInput) (store.Deployment, bool, error) {
+	database.input = input
+	return store.Deployment{ID: "deployment-1", Application: input.Application}, true, nil
 }
 
 func (database *recordingDatabase) ListEvents(_ context.Context, filter store.EventFilter) ([]store.EventSummary, error) {
@@ -109,6 +153,35 @@ func TestListEventsRejectsInvalidFilter(t *testing.T) {
 	server.httpServer.Handler.ServeHTTP(response, request)
 	if response.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", response.Code)
+	}
+}
+
+func TestDeploymentHookRequiresBearerToken(t *testing.T) {
+	database := &deploymentDatabase{}
+	server := newTestServer(database)
+	server.ConfigureDeploymentHooks("expected-token", "")
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/hooks/v1/deployments", strings.NewReader(`{"application":"prensap"}`))
+	server.httpServer.Handler.ServeHTTP(response, request)
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", response.Code)
+	}
+}
+
+func TestDeploymentHookNormalizesGitHubAction(t *testing.T) {
+	database := &deploymentDatabase{}
+	server := newTestServer(database)
+	server.ConfigureDeploymentHooks("expected-token", "")
+	response := httptest.NewRecorder()
+	body := `{"application":"prensap","component":"frontend","environment":"production","external_id":"run-1","commit_sha":"abc123","deployed_at":"2026-08-11T12:00:00Z"}`
+	request := httptest.NewRequest(http.MethodPost, "/hooks/v1/deployments", strings.NewReader(body))
+	request.Header.Set("Authorization", "Bearer expected-token")
+	server.httpServer.Handler.ServeHTTP(response, request)
+	if response.Code != http.StatusCreated {
+		t.Fatalf("expected 201, got %d: %s", response.Code, response.Body.String())
+	}
+	if database.input.Provider != "github_actions" || database.input.ExternalID != "run-1" {
+		t.Fatalf("unexpected deployment: %#v", database.input)
 	}
 }
 

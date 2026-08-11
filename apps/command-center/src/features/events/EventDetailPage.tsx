@@ -15,6 +15,8 @@ interface EventDetailPageProps {
 export function EventDetailPage({ eventId, onBack }: EventDetailPageProps) {
   const [event, setEvent] = useState<EventDetail | null>(null)
   const [error, setError] = useState('')
+  const [incidentTitle, setIncidentTitle] = useState('')
+  const [incidentResult, setIncidentResult] = useState('')
 
   useEffect(() => {
     api
@@ -39,7 +41,22 @@ export function EventDetailPage({ eventId, onBack }: EventDetailPageProps) {
     )
   }
 
+  const currentEvent = event
+
   const severity = event.interpretation?.severity ?? 'pending'
+
+  async function createIncident() {
+    const title =
+      incidentTitle.trim() ||
+      currentEvent.interpretation?.summary ||
+      currentEvent.error_type
+    try {
+      const incident = await api.createIncident(title, [currentEvent.error_group_id])
+      setIncidentResult(`Incidente creado: ${incident.title}`)
+    } catch {
+      setIncidentResult('Este grupo ya está bajo investigación o no pudo convertirse.')
+    }
+  }
 
   return (
     <main className="page">
@@ -58,6 +75,21 @@ export function EventDetailPage({ eventId, onBack }: EventDetailPageProps) {
         </div>
         <time>{formatDateTime(event.occurred_at)}</time>
       </header>
+
+      <section className="incident-create panel">
+        <div>
+          <strong>Abrir investigación</strong>
+          <span>Convierte este grupo de error en un incidente.</span>
+        </div>
+        <input
+          value={incidentTitle}
+          onChange={(event) => setIncidentTitle(event.target.value)}
+          placeholder={event.interpretation?.summary || event.error_type}
+          maxLength={160}
+        />
+        <button onClick={createIncident}>Crear incidente</button>
+        {incidentResult && <p>{incidentResult}</p>}
+      </section>
 
       <div className="detail-grid">
         <InterpretationPanel event={event} />

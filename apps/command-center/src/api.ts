@@ -3,6 +3,7 @@ export type EventState = 'actionable' | 'noise' | 'pending'
 
 export interface EventSummary {
   id: string
+  error_group_id: string
   source_event_id: string
   application: string
   component: string
@@ -14,6 +15,66 @@ export interface EventSummary {
   severity: Severity
   state: EventState
   occurrence_count: number
+}
+
+export type IncidentStatus = 'investigating' | 'resolved' | 'noise'
+export interface ErrorGroupSummary {
+  id: string
+  application: string
+  component: string
+  error_type: string
+  message: string
+  occurrence_count: number
+  last_seen_at: string
+}
+export interface IncidentEntry {
+  id: string
+  kind: 'note' | 'status_change' | 'group_added' | 'group_removed'
+  body?: string
+  from_status?: IncidentStatus
+  to_status?: IncidentStatus
+  created_at: string
+}
+export interface Incident {
+  id: string
+  application: string
+  title: string
+  status: IncidentStatus
+  created_at: string
+  updated_at: string
+  closed_at?: string
+  groups?: ErrorGroupSummary[]
+  entries?: IncidentEntry[]
+}
+export interface Deployment {
+  id: string
+  application: string
+  component: string
+  environment: string
+  provider: 'railway' | 'github_actions' | 'manual'
+  external_id: string
+  version?: string
+  commit_sha?: string
+  commit_url?: string
+  actor?: string
+  source_url?: string
+  deployed_at: string
+  created_at: string
+}
+export interface TimelineBucket {
+  start: string
+  error_count: number
+}
+export interface OperationsTimeline {
+  application: string
+  from: string
+  to: string
+  bucket_seconds: number
+  timeline: {
+    buckets: TimelineBucket[]
+    deployments: Deployment[]
+    incidents: Incident[]
+  }
 }
 export interface IntegrationStatus {
   id: string
@@ -124,4 +185,48 @@ export const api = {
     ),
   event: (id: string) => request<EventDetail>(`/api/v1/events/${id}`),
   reports: () => request<{ reports: DailyReport[] }>('/api/v1/reports?limit=30'),
+  timeline: (application: string, component: string, period: string) =>
+    request<OperationsTimeline>(
+      `/api/v1/operations/timeline?application=${encodeURIComponent(application)}&component=${encodeURIComponent(component)}&period=${period}`,
+    ),
+  incident: (id: string) => request<Incident>(`/api/v1/incidents/${id}`),
+  createIncident: (title: string, errorGroupIds: string[]) =>
+    request<Incident>('/api/v1/incidents', {
+      method: 'POST',
+      body: JSON.stringify({ title, error_group_ids: errorGroupIds }),
+    }),
+  addIncidentNote: (id: string, body: string) =>
+    request(`/api/v1/incidents/${id}/notes`, {
+      method: 'POST',
+      body: JSON.stringify({ body }),
+    }),
+  changeIncidentStatus: (id: string, status: IncidentStatus, note: string) =>
+    request(`/api/v1/incidents/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, note }),
+    }),
+  errorGroups: (application: string, query = '') =>
+    request<{ groups: ErrorGroupSummary[] }>(
+      `/api/v1/error-groups?application=${encodeURIComponent(application)}&q=${encodeURIComponent(query)}&limit=25`,
+    ),
+  addIncidentGroup: (incidentId: string, groupId: string) =>
+    request<void>(`/api/v1/incidents/${incidentId}/groups/${groupId}`, {
+      method: 'POST',
+    }),
+  removeIncidentGroup: (incidentId: string, groupId: string) =>
+    request<void>(`/api/v1/incidents/${incidentId}/groups/${groupId}`, {
+      method: 'DELETE',
+    }),
+  createDeployment: (input: {
+    application: string
+    component: string
+    version?: string
+    commit_sha?: string
+    deployed_at?: string
+    actor?: string
+  }) =>
+    request<Deployment>('/api/v1/deployments', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    }),
 }

@@ -70,6 +70,21 @@ transitorio de Telegram se reintenta cada 30 minutos, únicamente dentro del mis
 día. El historial privado está disponible en `GET /api/v1/reports` y en la sección
 Reportes del Command Center.
 
+## Incidentes y deploy markers
+
+La sección Bitácora relaciona ocurrencias con deploys exitosos y permite agrupar
+tipos de error en investigaciones auditables. Los deploys manuales se registran
+desde la interfaz. GitHub Actions usa `POST /hooks/v1/deployments` con
+`Authorization: Bearer $DEPLOYMENT_INGEST_TOKEN`.
+
+Railway se configura por servicio con una URL de esta forma:
+
+```text
+https://ATALAYA/hooks/v1/deployments/railway/RAILWAY_WEBHOOK_TOKEN/APLICACION/COMPONENTE
+```
+
+Atalaya descarta eventos fallidos o que no pertenezcan al ambiente `production`.
+
 ## Interpretar eventos
 
 Completar `OPENROUTER_API_KEY` en `.env`. Cada evento importado crea un job durable;

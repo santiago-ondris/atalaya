@@ -429,6 +429,9 @@ Alcance:
 - Mostrar historial de reportes en el command center.
  
 ### Sprint 8 — Incidentes y deploy markers
+
+**Estado:** implementado localmente el 2026-08-11; pendiente aplicar la migración
+en producción y validar un webhook real de Railway/GitHub Actions.
  
 **Objetivo:** relacionar errores con cambios de producción y construir memoria operativa.
  

@@ -138,6 +138,7 @@ func main() {
 
 	authService := auth.New(postgresStore, cfg.Auth.PasswordHash, cfg.Auth.SessionDuration)
 	server := httpserver.New(cfg.HTTPAddress, databaseWithQueries{Pool: pool, Postgres: postgresStore}, authService, logger, cfg.ReadinessTimeout, cfg.Auth.CookieSecure)
+	server.ConfigureDeploymentHooks(cfg.Deployments.IngestToken, cfg.Deployments.RailwayToken)
 	serverErrors := make(chan error, 1)
 	go func() {
 		logger.Info("watchman listening", "address", cfg.HTTPAddress, "environment", cfg.Environment)

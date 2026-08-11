@@ -26,7 +26,10 @@ type Config struct {
 	Telegram            TelegramConfig
 	Auth                AuthConfig
 	Reporting           ReportingConfig
+	Deployments         DeploymentConfig
 }
+
+type DeploymentConfig struct{ IngestToken, RailwayToken string }
 
 type ReportingConfig struct {
 	SchedulerInterval time.Duration
@@ -150,7 +153,8 @@ func Load() (Config, error) {
 			PasswordHash: os.Getenv("ATALAYA_ADMIN_PASSWORD_HASH"),
 			CookieSecure: envOrDefault("ATALAYA_COOKIE_SECURE", "true") == "true",
 		},
-		Reporting: ReportingConfig{WorkerID: envOrDefault("DAILY_REPORT_WORKER_ID", "watchman-daily-report-1")},
+		Reporting:   ReportingConfig{WorkerID: envOrDefault("DAILY_REPORT_WORKER_ID", "watchman-daily-report-1")},
+		Deployments: DeploymentConfig{IngestToken: os.Getenv("DEPLOYMENT_INGEST_TOKEN"), RailwayToken: os.Getenv("RAILWAY_WEBHOOK_TOKEN")},
 	}
 	var err error
 	cfg.PollInterval, err = durationSeconds("POLL_INTERVAL_SECONDS", 120)

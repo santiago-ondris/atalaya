@@ -18,6 +18,12 @@ applications
 daily_reports
 	├── daily_report_applications
 	└── daily_report_delivery_attempts
+
+applications
+	├── incidents
+	│     ├── incident_error_groups ── error_groups
+	│     └── incident_entries
+	└── deployments
 ```
 
 ## Decisiones importantes
@@ -86,3 +92,15 @@ para distinguir una fuente caída de un día con cero sesiones.
 
 `daily_report_delivery_attempts` audita cada envío. Los fallos transitorios se
 reprograman 30 minutos y los reportes que alcanzan `period_end` pasan a `expired`.
+
+### Incidentes y deploys
+
+Un incidente pertenece a una aplicación y agrupa uno o más `error_groups`. Un
+grupo puede formar parte de distintos incidentes históricos, pero las
+transacciones y advisory locks impiden que quede en dos investigaciones activas.
+`incident_entries` es append-only y conserva notas, transiciones y cambios de
+grupos; cerrar o reabrir siempre requiere una explicación.
+
+`deployments` normaliza markers manuales, Railway y GitHub Actions. Solo se
+persisten éxitos de producción y `(provider, external_id)` hace idempotentes los
+reintentos de webhooks.
