@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wheels House — Arquitectura</title>
+<style>
+  :root{
+    --bg:#0f0f23;
+    --bg-elevated:#15152f;
+    --panel:#171730;
+    --dark:#2a2359;
+    --primary:#bf247a;
+    --secondary:#812b8c;
+    --accent:#d9731a;
+    --danger:#bf3939;
+    --surface:#f5f5f5;
+    --blueprint:#f59e0b;
+    --border:rgba(245,245,245,0.09);
+    --text-main:#f5f5f5;
+    --text-dim:rgba(245,245,245,0.56);
+    --text-faint:rgba(245,245,245,0.34);
+    --font-display:Georgia,'Palatino Linotype','Times New Roman',serif;
+    --font-mono:'Consolas','SFMono-Regular',Menlo,Monaco,monospace;
+    --font-body:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text-main);
+    font-family:var(--font-body);
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+  }
+
+  /* ---------- Header ---------- */
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    padding:12px 20px;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg,var(--bg-elevated),var(--bg));
+    flex-wrap:wrap;
+    z-index:20;
+  }
+  .brand{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
+  .brand h1{
+    font-family:var(--font-display);
+    font-size:19px;
+    margin:0;
+    color:var(--surface);
+    font-weight:700;
+    letter-spacing:0.2px;
+  }
+  .brand h1 span{color:var(--primary);}
+  .brand .tag{
+    font-family:var(--font-mono);
+    font-size:10.5px;
+    color:var(--accent);
+    border:1px solid rgba(217,115,26,0.4);
+    padding:2px 7px;
+    border-radius:20px;
+    background:rgba(217,115,26,0.08);
+    white-space:nowrap;
+  }
+  .stats{
+    font-family:var(--font-mono);
+    font-size:11px;
+    color:var(--text-dim);
+    white-space:nowrap;
+  }
+  .toolbar{display:flex;align-items:center;gap:8px;}
+  .toolbar button{
+    background:var(--bg-elevated);
+    border:1px solid var(--border);
+    color:var(--text-main);
+    width:30px;height:30px;
+    border-radius:7px;
+    font-size:15px;
+    cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:.15s;
+    font-family:var(--font-mono);
+  }
+  .toolbar button:hover{border-color:var(--accent);color:var(--accent);background:rgba(217,115,26,0.1);}
+  .toolbar .divider{width:1px;height:20px;background:var(--border);margin:0 2px;}
+  .toolbar .zoom-level{font-family:var(--font-mono);font-size:10.5px;color:var(--text-faint);width:40px;text-align:center;}
+
+  /* ---------- Layout ---------- */
+  .app{flex:1;display:flex;min-height:0;}
+  .diagram-pane{
+    flex:1;
+    position:relative;
+    overflow:hidden;
+    background-color:#08081a;
+    background-image:
+      linear-gradient(color-mix(in srgb, var(--blueprint) 5%, transparent) 1px, transparent 1px),
+      linear-gradient(90deg, color-mix(in srgb, var(--blueprint) 5%, transparent) 1px, transparent 1px);
+    background-size:26px 26px;
+    cursor:grab;
+  }
+  .diagram-pane.panning{cursor:grabbing;}
+  .diagram-pane svg{display:block;width:100%;height:100%;}
+
+  .active-flow-pill{
+    position:absolute;
+    top:14px;left:50%;
+    transform:translateX(-50%);
+    background:var(--panel);
+    border:1px solid var(--accent);
+    color:var(--surface);
+    padding:7px 12px 7px 14px;
+    border-radius:20px;
+    font-size:12.5px;
+    display:none;
+    align-items:center;
+    gap:10px;
+    box-shadow:0 6px 18px rgba(0,0,0,0.45);
+    z-index:15;
+    max-width:min(88%,560px);
+  }
+  .active-flow-pill.show{display:flex;}
+  .active-flow-pill b{color:var(--accent);font-weight:700;}
+  .active-flow-pill button{
+    background:none;border:none;color:var(--text-dim);cursor:pointer;
+    font-size:15px;line-height:1;padding:2px 4px;border-radius:50%;
+  }
+  .active-flow-pill button:hover{color:var(--surface);background:rgba(255,255,255,0.08);}
+
+  .legend{
+    position:absolute;
+    bottom:14px;left:14px;
+    background:rgba(21,21,47,0.92);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:10px 12px;
+    font-size:10.5px;
+    z-index:15;
+    max-width:230px;
+    backdrop-filter:blur(4px);
+  }
+  .legend.collapsed .legend-body{display:none;}
+  .legend-head{display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;user-select:none;}
+  .legend-head span{color:var(--text-dim);font-family:var(--font-mono);letter-spacing:.05em;text-transform:uppercase;font-size:9.5px;}
+  .legend-head .chev{color:var(--text-faint);transition:.15s;font-size:11px;}
+  .legend.collapsed .chev{transform:rotate(-90deg);}
+  .legend-body{margin-top:8px;display:flex;flex-direction:column;gap:5px;}
+  .legend-row{display:flex;align-items:center;gap:7px;color:var(--text-dim);}
+  .legend-swatch{width:11px;height:11px;border-radius:3px;flex-shrink:0;}
+  .legend-note{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);color:var(--text-faint);line-height:1.5;font-size:10px;}
+
+  /* ---------- Flow panel ---------- */
+  .flow-panel{
+    width:360px;
+    flex-shrink:0;
+    border-left:1px solid var(--border);
+    background:var(--bg-elevated);
+    overflow-y:auto;
+    padding:16px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .flow-panel h2{
+    font-family:var(--font-display);
+    font-size:14px;
+    margin:2px 0 0 0;
+    color:var(--surface);
+    text-transform:uppercase;
+    letter-spacing:.06em;
+  }
+  .flow-panel .lede{color:var(--text-dim);font-size:11.5px;line-height:1.5;margin:0 0 6px 0;}
+  .flow-card{
+    border:1px solid var(--border);
+    background:var(--panel);
+    border-radius:10px;
+    padding:11px 12px;
+    cursor:pointer;
+    transition:.15s;
+  }
+  .flow-card:hover{border-color:rgba(217,115,26,0.5);}
+  .flow-card.active{border-color:var(--accent);background:linear-gradient(135deg,rgba(217,115,26,0.14),rgba(191,36,122,0.08));}
+  .flow-card .row{display:flex;align-items:center;gap:10px;}
+  .flow-badge{
+    width:24px;height:24px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--font-mono);font-size:11.5px;font-weight:700;
+    color:var(--surface);
+    flex-shrink:0;
+    border:1.5px solid rgba(255,255,255,0.25);
+  }
+  .flow-card .title{font-size:13px;font-weight:700;color:var(--surface);}
+  .flow-card .desc{font-size:11px;color:var(--text-dim);margin-top:5px;line-height:1.5;}
+  .flow-card .steps{
+    margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);
+    display:none;flex-direction:column;gap:6px;
+  }
+  .flow-card.active .steps{display:flex;}
+  .step-line{display:flex;gap:8px;font-size:11px;color:var(--text-dim);align-items:flex-start;}
+  .step-num{
+    font-family:var(--font-mono);font-size:9.5px;color:var(--bg);
+    background:var(--accent);border-radius:4px;min-width:16px;height:16px;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;font-weight:700;
+  }
+  .step-line b{color:var(--surface);font-weight:600;}
+  .flow-panel-footer{
+    margin-top:auto;padding-top:12px;border-top:1px solid var(--border);
+    font-size:10.5px;color:var(--text-faint);line-height:1.6;
+  }
+  .flow-panel-footer code{font-family:var(--font-mono);color:var(--accent);}
+
+  /* ---------- Tooltip ---------- */
+  #tooltip{
+    position:fixed;
+    pointer-events:none;
+    background:#181a3d;
+    border:1px solid var(--accent);
+    border-radius:9px;
+    padding:10px 12px;
+    max-width:300px;
+    font-size:11.5px;
+    line-height:1.5;
+    color:var(--text-main);
+    box-shadow:0 10px 30px rgba(0,0,0,0.55);
+    z-index:100;
+    opacity:0;
+    transform:translateY(4px);
+    transition:opacity .12s ease, transform .12s ease;
+  }
+  #tooltip.show{opacity:1;transform:translateY(0);}
+  #tooltip .tt-title{font-weight:700;color:var(--surface);font-size:12.5px;margin-bottom:2px;}
+  #tooltip .tt-path{font-family:var(--font-mono);color:var(--accent);font-size:10px;margin-bottom:6px;word-break:break-all;}
+  #tooltip .tt-desc{color:var(--text-dim);}
+  #tooltip .tt-pin{margin-top:6px;font-size:9.5px;color:var(--text-faint);font-style:italic;}
+
+  /* ---------- SVG node/edge styling ---------- */
+  .node{cursor:pointer;}
+  .node rect{
+    stroke-width:1.4;
+    transition:opacity .18s ease, filter .18s ease, stroke-width .18s ease;
+  }
+  .node text{pointer-events:none; font-family:var(--font-body);}
+  .node .l-title{font-weight:700;fill:var(--surface);}
+  .node .l-title2{fill:rgba(245,245,245,0.72);}
+  .node .l-sub{font-family:var(--font-mono);fill:var(--accent);opacity:.85;}
+  .node .l-mono{font-family:var(--font-mono);fill:rgba(245,245,245,0.65);}
+  .node.dimmed{opacity:.16;}
+  .node.dimmed rect{filter:saturate(.3);}
+  .node.active-node rect{filter:drop-shadow(0 0 7px currentColor);stroke-width:2.4;}
+  .step-badge circle{stroke:var(--bg);stroke-width:2;}
+  .step-badge text{font-family:var(--font-mono);font-weight:700;fill:var(--bg);}
+
+  .n-ui rect{fill:rgba(191,36,122,0.16);stroke:var(--primary);color:var(--primary);}
+  .n-logic rect{fill:rgba(129,43,140,0.18);stroke:var(--secondary);color:var(--secondary);}
+  .n-hub rect{fill:rgba(217,115,26,0.22);stroke:var(--accent);color:var(--accent);}
+  .n-guards rect{fill:rgba(191,57,57,0.2);stroke:var(--danger);color:var(--danger);}
+  .n-ctl rect{fill:rgba(129,43,140,0.22);stroke:var(--secondary);color:var(--secondary);}
+  .n-svc rect{fill:rgba(42,35,89,0.85);stroke:#7d6fc9;color:#7d6fc9;}
+  .n-crud rect{fill:rgba(42,35,89,0.6);stroke:rgba(125,111,201,0.7);color:#7d6fc9;}
+  .n-db rect{fill:#171334;stroke:var(--primary);color:var(--primary);}
+  .n-events rect{fill:rgba(217,115,26,0.12);stroke:var(--accent);stroke-dasharray:5 3;color:var(--accent);}
+  .n-ext rect{fill:rgba(245,245,245,0.05);stroke:rgba(245,245,245,0.4);color:#cfd3e6;}
+  .n-iso rect{fill:rgba(245,245,245,0.03);stroke:rgba(245,245,245,0.28);stroke-dasharray:4 4;color:var(--text-faint);}
+
+  .edge-hit{fill:none;stroke:transparent;stroke-width:16;cursor:pointer;}
+  .edge-line{fill:none;stroke:rgba(245,245,245,0.16);stroke-width:1.4;transition:opacity .18s ease, stroke .18s ease, stroke-width .18s ease;}
+  .edge-line.dimmed{opacity:.05;}
+  .edge-line.active-edge{stroke:var(--accent);stroke-width:2.6;opacity:1;stroke-dasharray:7 6;animation:dashmove 1s linear infinite;}
+  .edge-line.dashed-base{stroke-dasharray:3 4;}
+  @keyframes dashmove{to{stroke-dashoffset:-26;}}
+  .edge-label-bg{fill:#0f0f23;opacity:.92;}
+  .edge-label{font-family:var(--font-mono);font-size:9.5px;fill:var(--accent);}
+
+  /* ---------- Responsive ---------- */
+  @media (max-width:900px){
+    .app{flex-direction:column;}
+    .flow-panel{width:100%;height:44vh;border-left:none;border-top:1px solid var(--border);}
+    .diagram-pane{height:56vh;}
+    .stats{display:none;}
+    header{padding:10px 14px;}
+  }
+  @media (max-width:520px){
+    .legend{max-width:170px;font-size:9.5px;}
+    .brand h1{font-size:16px;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>Wheels <span>House</span></h1>
+    <span class="tag">arquitectura interactiva</span>
+  </div>
+  <div class="stats" id="statsLine"></div>
+  <div class="toolbar">
+    <button id="zoomOut" title="Alejar">−</button>
+    <span class="zoom-level" id="zoomLevel">100%</span>
+    <button id="zoomIn" title="Acercar">+</button>
+    <div class="divider"></div>
+    <button id="zoomReset" title="Restablecer vista">⤾</button>
+  </div>
+</header>
+
+<div class="app">
+  <div class="diagram-pane" id="diagramPane">
+    <div class="active-flow-pill" id="activeFlowPill">
+      <span><b id="activeFlowLabel"></b></span>
+      <button id="clearFlowBtn" title="Cerrar flujo">✕</button>
+    </div>
+    <svg id="svg" viewBox="0 0 3050 1260" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <marker id="arrow-default" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="rgba(245,245,245,0.3)"></path>
+        </marker>
+        <marker id="arrow-active" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"></path>
+        </marker>
+      </defs>
+      <g id="viewport">
+        <g id="edgesLayer"></g>
+        <g id="nodesLayer"></g>
+      </g>
+    </svg>
+
+    <div class="legend" id="legend">
+      <div class="legend-head" id="legendHead">
+        <span>Leyenda</span>
+        <span class="chev">▾</span>
+      </div>
+      <div class="legend-body">
+        <div class="legend-row"><span class="legend-swatch" style="background:var(--primary)"></span>UI React (páginas / componentes)</div>
+        <div class="legend-row"><span class="legend-swatch" style="background:var(--secondary)"></span>Lógica FE / Controllers NestJS</div>
+        <div class="legend-row"><span class="legend-swatch" style="background:var(--accent)"></span>Cliente HTTP · Event Emitter</div>
+        <div class="legend-row"><span class="legend-swatch" style="background:var(--danger)"></span>Guards (autenticación)</div>
+        <div class="legend-row"><span class="legend-swatch" style="background:#7d6fc9"></span>Services · CRUD (Drizzle)</div>
+        <div class="legend-row"><span class="legend-swatch" style="background:#171334;border:1px solid var(--primary)"></span>PostgreSQL (tablas)</div>
+        <div class="legend-row"><span class="legend-swatch" style="background:rgba(245,245,245,0.15);border:1px solid #cfd3e6"></span>Servicios externos</div>
+        <div class="legend-row"><span class="legend-swatch" style="background:rgba(245,245,245,0.03);border:1px dashed rgba(245,245,245,0.4)"></span>Sin conectar / no implementado</div>
+        <div class="legend-note">Click en un flujo (panel derecho) resalta su recorrido completo. Hover sobre cualquier nodo o conexión para ver detalle. Arrastrá para mover el diagrama, scroll para zoom.</div>
+      </div>
+    </div>
+  </div>
+
+  <aside class="flow-panel">
+    <h2>Flujos end-to-end</h2>
+    <p class="lede">Recorridos reales trazados desde el código: UI → hook/servicio → HTTP → guard → controller → service → CRUD → tabla. Elegí uno para resaltar su ruta completa en el diagrama.</p>
+    <div id="flowList"></div>
+    <div class="flow-panel-footer">
+      Relevado directamente del repo (NestJS 11 + Drizzle + React 19). <code>@wheels/shared</code> existe en el workspace pero ningún import lo consume — se muestra aislado. "Coleccionista del Mes" solo figura en <code>roadmapData.ts</code>, sin backend real.
+    </div>
+  </aside>
+</div>
+
+<div id="tooltip"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* =========================================================
+     1. DATA — módulos NestJS (controller/service generados)
+  ========================================================= */
+  var MODULES = [
+    {key:'user', name:'Usuarios', ctlFile:'user.controller.ts', svcFile:'user.service.ts',
+      desc:'Registro, login (JWT dual: access 15m / refresh 14d), refresh, perfil público, búsqueda, founders, update de datos/contraseña, forgot/reset password y borrado de cuenta en cascada (autos, grupos, follows, likes, feed, intentos de juego).',
+      routes:'POST /register · POST /login · POST /refresh · GET /profile/:username · PUT user/update-info · DELETE user', guard:'Throttler (login) · Jwt (mutaciones) · Optional (perfil)'},
+    {key:'car', name:'Autos', ctlFile:'car.controller.ts', svcFile:'car.service.ts',
+      desc:'CRUD de autos, colección paginada con filtros, wishlist (mover a colección), búsqueda global, historial de búsqueda, alta masiva a grupo.',
+      routes:'POST car/create · GET car/collection/:username · PUT car/update-info/:carId · PUT car/wishedCarToCollection/:carId', guard:'Jwt (mutaciones) · Optional (lectura)'},
+    {key:'group', name:'Grupos', ctlFile:'group.controller.ts', svcFile:'group.service.ts',
+      desc:'Colecciones curadas de autos definidas por el usuario (grupos temáticos dentro de su colección).',
+      routes:'POST group/create · GET group/list/:username · PUT group/update/:groupId · DELETE group/:groupId', guard:'Jwt (mutaciones) · Optional (lectura)'},
+    {key:'feed', name:'Feed', ctlFile:'feed.controller.ts', svcFile:'feed.service.ts',
+      desc:'Feed social paginado con tabs "explore"/"following" y filtros por tipo de evento y usuario objetivo.',
+      routes:'GET feed?tab=explore|following', guard:'Optional'},
+    {key:'follows', name:'Follows', ctlFile:'follows.controller.ts', svcFile:'follows.service.ts',
+      desc:'Seguir / dejar de seguir usuarios, listas de followers y following, actualiza contadores denormalizados en user.',
+      routes:'POST users/:id/follow · DELETE users/:id/unfollow · GET users/:id/followers', guard:'Jwt'},
+    {key:'likes', name:'Likes', ctlFile:'likes.controller.ts', svcFile:'likes.service.ts',
+      desc:'Likes a autos y a grupos, con contador denormalizado en la tabla del objeto likeado.',
+      routes:'POST social/likes/car/:id · GET social/likes/car/:id/likers', guard:'Jwt'},
+    {key:'notif', name:'Notificaciones', ctlFile:'notifications.controller.ts', svcFile:'notifications.service.ts',
+      desc:'Listado paginado, contador de no leídas, marcar leída(s), borrar. Guard de clase JwtAuthGuard (todo el controller requiere sesión). Incluye cron de limpieza semanal.',
+      routes:'GET social/notifications · GET .../unread-count · PUT .../:id/read · PUT .../read-all', guard:'Jwt (guard de clase)'},
+    {key:'admin', name:'Admin', ctlFile:'admin.controller.ts', svcFile:'admin.service.ts',
+      desc:'Moderación: ocultar autos/grupos, revisar y archivar mensajes de contacto, gestionar el auto destacado global.',
+      routes:'PATCH admin/cars/:id/hide · GET admin/contact · GET/PATCH admin/featured-car', guard:'Jwt + AdminGuard'},
+    {key:'contact', name:'Contacto', ctlFile:'contact.controller.ts', svcFile:'contact.service.ts',
+      desc:'Formulario de contacto/soporte, con motivo tipado (enum contact_reason).',
+      routes:'POST contact', guard:'Optional'},
+    {key:'wheelword', name:'WheelWord', ctlFile:'wheelword.controller.ts', svcFile:'wheelword.service.ts',
+      desc:'Juego diario de palabra estilo Wordle. No sigue el patrón modules/ de Nest: controller y service viven sueltos en controllers/ y services/, y acceden a la DB directo (sin CRUD file).',
+      routes:'GET wheelword/today · POST wheelword/guess · GET wheelword/state · GET wheelword/stats · POST wheelword/share', guard:'Optional (guess) · Jwt (state/stats/share)'},
+    {key:'upload', name:'Upload', ctlFile:'upload.controller.ts', svcFile:'upload.service.ts',
+      desc:'Firma Cloudinary para subida directa desde el browser (folder wheels-house/cars, transform auto WebP/AVIF), y fallback de subida vía backend.',
+      routes:'GET upload/signature · POST upload/image · POST upload/image/public · DELETE upload/image/:publicId', guard:'Jwt + Throttler · Throttler (público, registro)'},
+    {key:'stats', name:'Stats', ctlFile:'stats.controller.ts', svcFile:'stats.service.ts',
+      desc:'Estadísticas globales y Hall of Fame (categorías Founder / Contributor / Ambassador / Legend, con flags JSONB).',
+      routes:'GET stats/global · GET stats/hall-of-fame/:category · GET stats/:username', guard:'Público'},
+    {key:'import', name:'Import', ctlFile:'import.controller.ts', svcFile:'import.service.ts',
+      desc:'Importación masiva de autos vía Excel/CSV: template, preview y confirmación. Reutiliza car.crud.ts para la inserción.',
+      routes:'GET car/import/template · POST car/import/preview · POST car/import/confirm', guard:'Jwt'},
+    {key:'health', name:'Health', ctlFile:'health.controller.ts', svcFile:null,
+      desc:'Liveness probe simple para monitoreo de infraestructura.',
+      routes:'GET health', guard:'Público'}
+  ];
+
+  var K = {title:15, title2:13, sub:12.5, mono:11};
+  function mkLines(name, layer2, file){ return [{t:name,k:'title'},{t:layer2,k:'title2'},{t:file,k:'sub'}]; }
+
+  /* =========================================================
+     2. DATA — nodos manuales por capa
+  ========================================================= */
+  var NODES = {};
+  var ROWS = []; // {y, w, h, ids:[]}
+
+  function addRow(y, w, ids){ ROWS.push({y:y, w:w, ids:ids}); }
+
+  // --- Layer 0: Frontend UI ---
+  NODES.ui_login = {cluster:'ui', lines:[{t:'Login / Registro',k:'title'},{t:'LoginModal · RegisterForm',k:'title2'},{t:'pages/login/*',k:'sub'}],
+    desc:'Modal de login global y página de registro. Dispara login/register y, opcionalmente, la subida del avatar antes de crear la cuenta.'};
+  NODES.ui_car = {cluster:'ui', lines:[{t:'Alta de Auto',k:'title'},{t:'AddCarPage · EditCarPage',k:'title2'},{t:'pages/car/*',k:'sub'}],
+    desc:'Formularios de alta/edición de auto, con widgets de subida de imágenes (single/multi).'};
+  NODES.ui_group = {cluster:'ui', lines:[{t:'Grupos',k:'title'},{t:'Create · Edit · Manage cars',k:'title2'},{t:'pages/groups/*',k:'sub'}],
+    desc:'Colecciones curadas: creación, edición y gestión de autos dentro de un grupo.'};
+  NODES.ui_feed = {cluster:'ui', lines:[{t:'Feed Social',k:'title'},{t:'CommunityPage · FeedList',k:'title2'},{t:'pages/social · components/social',k:'sub'}],
+    desc:'Timeline social con scroll infinito y detector de actividad nueva.'};
+  NODES.ui_social = {cluster:'ui', lines:[{t:'Like · Follow',k:'title'},{t:'Campana de notificaciones',k:'title2'},{t:'features/social/components',k:'sub'}],
+    desc:'LikeButton, FollowButton, NotificationBell/Dropdown — arquitectura feature-based, separada de pages/.'};
+  NODES.ui_wheelword = {cluster:'ui', lines:[{t:'WheelWord',k:'title'},{t:'GameGrid · VirtualKeyboard',k:'title2'},{t:'pages/wheelword/*',k:'sub'}],
+    desc:'Juego diario de palabra estilo Wordle sobre marcas/modelos de autos.'};
+  NODES.ui_contact = {cluster:'ui', lines:[{t:'Contacto',k:'title'},{t:'ContactPage',k:'title2'},{t:'pages/ContactPage.tsx',k:'sub'}],
+    desc:'Formulario de contacto/soporte, accesible sin sesión.'};
+  NODES.ui_admin = {cluster:'ui', lines:[{t:'Panel Admin',k:'title'},{t:'Contacto · Auto destacado',k:'title2'},{t:'pages/admin/*',k:'sub'}],
+    desc:'AdminContactPage, AdminFeaturedCarPage, HideContentModal — solo accesible vía AdminRoute.'};
+  addRow(70, 168, ['ui_login','ui_car','ui_group','ui_feed','ui_social','ui_wheelword','ui_contact','ui_admin']);
+
+  // --- Layer 1: Frontend logic ---
+  NODES.fe_auth_context = {cluster:'logic', lines:[{t:'AuthContext',k:'title'},{t:'sesión, tokens, Sentry.setUser',k:'title2'},{t:'contexts/AuthContext.tsx',k:'sub'}],
+    desc:'Único contexto de auth. Guarda access/refresh token en localStorage, decodifica el JWT client-side para poblar el usuario optimistamente y escucha el evento DOM "session-expired".'};
+  NODES.fe_use_feed = {cluster:'logic', lines:[{t:'useSocialFeed',k:'title'},{t:'infinite scroll + polling',k:'title2'},{t:'hooks/useSocialFeed.ts',k:'sub'}],
+    desc:'useInfiniteQuery (TanStack) sobre el feed, con detección de nueva actividad vía useNewActivityCheck.'};
+  NODES.fe_use_social = {cluster:'logic', lines:[{t:'useLike · useFollow',k:'title'},{t:'useNotifications',k:'title2'},{t:'features/social/hooks',k:'sub'}],
+    desc:'Mutaciones optimistas (TanStack Query) con toast de feedback y actualización de cache local.'};
+  NODES.fe_use_admin = {cluster:'logic', lines:[{t:'useHideContent',k:'title'},{t:'moderación de contenido',k:'title2'},{t:'features/admin/hooks',k:'sub'}],
+    desc:'Hook detrás de HideContentModal para ocultar autos/grupos reportados.'};
+  NODES.fe_upload = {cluster:'logic', lines:[{t:'upload.service.ts',k:'title'},{t:'firma + subida directa',k:'title2'},{t:'services/upload.service.ts',k:'sub'}],
+    desc:'Pide firma al backend y sube la imagen directo al API de Cloudinary desde el browser, con fallback a subida vía backend si falla.'};
+  NODES.fe_domain_services = {cluster:'logic', lines:[{t:'Services de dominio',k:'title'},{t:'auth · car · group · social…',k:'title2'},{t:'services/*.service.ts',k:'sub'}],
+    desc:'Un archivo por dominio (auth, car, group, social, wheelword, admin, contact, import, profile) + followsApi/likesApi en features/social/api. Todas terminan llamando a apiRequest().'};
+  addRow(215, 168, ['fe_auth_context','fe_use_feed','fe_use_social','fe_use_admin','fe_upload','fe_domain_services']);
+
+  // --- Layer 2: HTTP hub ---
+  NODES.fe_api_client = {cluster:'hub', lines:[{t:'api.ts',k:'title'},{t:'apiRequest() + refresh en 401',k:'title2'},{t:'services/api.ts',k:'sub'}],
+    desc:'Cliente HTTP central sobre fetch. Agrega el header Authorization, intercepta 401, llama POST /refresh automáticamente y reintenta. Si el refresh falla, dispara el evento "session-expired".'};
+  addRow(355, 220, ['fe_api_client']);
+
+  // --- Layer 3: Guards ---
+  NODES.be_guards = {cluster:'guards', lines:[{t:'Guards (Passport)',k:'title'},{t:'Jwt · Optional · Refresh · Throttler · Admin',k:'title2'},{t:'validators/auth.validator.ts',k:'sub'}],
+    desc:'JwtAuthGuard (obligatorio), OptionalJwtAuthGuard (deja pasar sin sesión, usado en la mayoría de lecturas públicas), JwtRefreshGuard (extrae el token del body, solo en /refresh), AdminGuard (shared/guards/admin.guard.ts). Rate limiting global: 30 req/min.'};
+  addRow(485, 220, ['be_guards']);
+
+  // --- Layer 4/5: Controllers & Services (generados desde MODULES) ---
+  var ctlIds = [], svcIds = [];
+  MODULES.forEach(function(m){
+    var ctlId = 'ctl_'+m.key, svcId = 'svc_'+m.key;
+    NODES[ctlId] = {cluster:'ctl', lines:mkLines(m.name,'Controller',m.ctlFile), desc:m.desc+'  Rutas: '+m.routes+'.  Guard: '+m.guard+'.'};
+    ctlIds.push(ctlId);
+    if(m.svcFile){
+      NODES[svcId] = {cluster:'svc', lines:mkLines(m.name,'Service',m.svcFile), desc:m.desc};
+      svcIds.push(svcId);
+    }
+  });
+  NODES.svc_email = {cluster:'svc', lines:[{t:'email.service.ts',k:'title'},{t:'Resend (no Nodemailer)',k:'title2'},{t:'services/email.service.ts',k:'sub'}],
+    desc:'sendWelcomeEmail() y sendForgotPasswordEmail(), remitente noreply@wheelshouse.app. Falla de forma no bloqueante: si el envío falla, se loguea pero no rompe el registro.'};
+  svcIds.push('svc_email');
+  addRow(615, 168, ctlIds);
+  addRow(755, 168, svcIds);
+
+  // --- Layer 6: CRUD / Repositories ---
+  NODES.crud_user = {cluster:'crud', lines:[{t:'user.crud.ts',k:'title'},{t:'Drizzle queries',k:'title2'},{t:'database/crud/user.crud.ts',k:'sub'}], desc:'Todas las queries Drizzle sobre la tabla user y searchHistory.'};
+  NODES.crud_car = {cluster:'crud', lines:[{t:'car.crud.ts',k:'title'},{t:'Drizzle queries',k:'title2'},{t:'database/crud/car.crud.ts',k:'sub'}], desc:'Queries Drizzle sobre car y carPicture. Reutilizado también por Import.'};
+  NODES.crud_group = {cluster:'crud', lines:[{t:'group.crud.ts',k:'title'},{t:'Drizzle queries',k:'title2'},{t:'database/crud/group.crud.ts',k:'sub'}], desc:'Queries Drizzle sobre group y groupedCar.'};
+  NODES.repo_feed = {cluster:'crud', lines:[{t:'feed.repository.ts',k:'title'},{t:'Drizzle directo',k:'title2'},{t:'modules/social/feed',k:'sub'}], desc:'Acceso directo a Drizzle sobre feedEvent (join con user/car/group). No usa carpeta crud/.'};
+  NODES.repo_follows = {cluster:'crud', lines:[{t:'follows.repository.ts',k:'title'},{t:'Drizzle directo',k:'title2'},{t:'modules/social/follows',k:'sub'}], desc:'Drizzle directo sobre userFollow, actualiza followersCount/followingCount en user.'};
+  NODES.repo_likes = {cluster:'crud', lines:[{t:'likes.repository.ts',k:'title'},{t:'Drizzle directo',k:'title2'},{t:'modules/social/likes',k:'sub'}], desc:'Drizzle directo sobre carLike/groupLike, incrementa el contador denormalizado.'};
+  NODES.repo_notif = {cluster:'crud', lines:[{t:'notifications.repository.ts',k:'title'},{t:'Drizzle directo',k:'title2'},{t:'modules/social/notifications',k:'sub'}], desc:'Drizzle directo sobre la tabla notification.'};
+  NODES.crud_stats = {cluster:'crud', lines:[{t:'stats.crud.ts',k:'title'},{t:'agregaciones (solo lectura)',k:'title2'},{t:'database/crud/stats.crud.ts',k:'sub'}], desc:'Queries de agregación de solo lectura sobre user y car para stats globales y Hall of Fame.'};
+  addRow(895, 160, ['crud_user','crud_car','crud_group','repo_feed','repo_follows','repo_likes','repo_notif','crud_stats']);
+
+  // --- Layer 7: Database ---
+  NODES.db_user = {cluster:'db', lines:[{t:'user.schema.ts',k:'title'},{t:'user, searchHistory',k:'mono'}], desc:'Tabla central: casi todo el esquema la referencia. Incluye stats sociales y de juego denormalizadas.'};
+  NODES.db_car = {cluster:'db', lines:[{t:'car.schema.ts',k:'title'},{t:'car, carPicture',k:'mono'}], desc:'Autos y sus fotos. FK a user (dueño) y a user (hiddenBy, moderación).'};
+  NODES.db_group = {cluster:'db', lines:[{t:'group.schema.ts',k:'title'},{t:'group, groupedCar',k:'mono'}], desc:'Grupos y la tabla de unión con car.'};
+  NODES.db_social = {cluster:'db', lines:[{t:'social.schema.ts',k:'title'},{t:'feedEvent, userFollow,',k:'mono'},{t:'carLike, groupLike, +2',k:'mono'}], desc:'feedEvent, userFollow, carLike, groupLike, carSearchHistory, notification — todas referencian user y, opcionalmente, car/group.'};
+  NODES.db_wheelword = {cluster:'db', lines:[{t:'wheelword.schema.ts',k:'title'},{t:'gameWord, dailyGame,',k:'mono'},{t:'userGameAttempt',k:'mono'}], desc:'Palabras del juego, la partida diaria y los intentos por usuario.'};
+  NODES.db_contact = {cluster:'db', lines:[{t:'contact_messages.schema.ts',k:'title'},{t:'contactMessage',k:'mono'}], desc:'Mensajes de contacto, con enum contact_reason. userId opcional (puede venir de un visitante sin cuenta).'};
+  NODES.db_settings = {cluster:'db', lines:[{t:'settings.schema.ts',k:'title'},{t:'settings (key-value)',k:'mono'}], desc:'Almacén key-value, usado hoy para el auto destacado global (featured-car).'};
+  addRow(1035, 200, ['db_user','db_car','db_group','db_social','db_wheelword','db_contact','db_settings']);
+
+  // --- External services ---
+  NODES.ext_cloudinary = {cluster:'ext', lines:[{t:'Cloudinary',k:'title'},{t:'imágenes WebP/AVIF',k:'title2'},{t:'servicio externo',k:'sub'}], desc:'CDN de imágenes. Sube directo desde el browser (firma SHA1 con CLOUDINARY_API_SECRET) o vía backend como fallback. Auto-quality/format.'};
+  NODES.ext_resend = {cluster:'ext', lines:[{t:'Resend',k:'title'},{t:'emails transaccionales',k:'title2'},{t:'servicio externo',k:'sub'}], desc:'Provee el envío de emails de bienvenida y de recuperación de contraseña (no usa Nodemailer pese a la dependencia listada).'};
+  NODES.ext_sentry = {cluster:'ext', lines:[{t:'Sentry',k:'title'},{t:'errores FE + BE',k:'title2'},{t:'instrument.ts · SentryGlobalFilter',k:'sub'}], desc:'BE: instrument.ts se importa primero en main.ts; SentryGlobalFilter registrado como APP_FILTER global captura toda excepción no manejada. FE: @sentry/react, sincroniza el usuario logueado desde AuthContext.'};
+  NODES.ext_cron = {cluster:'ext', lines:[{t:'Cron semanal',k:'title'},{t:'@nestjs/schedule',k:'title2'},{t:'notifications.tasks.ts',k:'sub'}], desc:'@Cron(EVERY_WEEKEND) → cleanupOldNotifications(). Único cron job encontrado en el repo.'};
+  addRow(1175, 160, ['ext_cloudinary','ext_resend','ext_sentry','ext_cron']);
+
+  // --- Manual position: Events (EventEmitter2) ---
+  NODES.ev_service = {cluster:'events', lines:[{t:'EventsService',k:'title'},{t:'emisor (EventEmitter2)',k:'title2'},{t:'social/events/events.service.ts',k:'sub'}],
+    desc:'Wrapper de EventEmitter2. Expone emitCarAdded, emitCarLiked, emitUserFollowed, emitGroupCreated, emitMilestoneReached, etc. También hay eventos declarados sin emisor real aún: CAR_UPDATED, POST_*, CONTENT_REPORTED — puntos de extensión.',
+    x:2900, y:700, w:190, h:0};
+  NODES.ev_subscriber = {cluster:'events', lines:[{t:'EventsSubscriber',k:'title'},{t:'crea feedEvent + notification',k:'title2'},{t:'social/events/events.subscriber.ts',k:'sub'}],
+    desc:'@OnEvent(...) centralizado: por cada evento social decide si crea un feedEvent, una notification, o ambos (p.ej. CAR_LIKED → notifica al dueño del auto).',
+    x:2900, y:850, w:190, h:0};
+
+  // --- Manual position: disconnected / roadmap ---
+  NODES.iso_shared = {cluster:'iso', lines:[{t:'@wheels/shared',k:'title'},{t:'no importado por api ni web',k:'title2'},{t:'packages/shared/src/types.ts',k:'sub'}],
+    desc:'Paquete del workspace con los tipos HotWheel y Group. Ningún import real en apps/api ni apps/web lo consume, y sus tipos ni siquiera coinciden con los DTOs/schemas reales usados (CarData, car/group schema). Desconectado del resto del monorepo.',
+    x:2900, y:145, w:210, h:0};
+  NODES.iso_contest = {cluster:'iso', lines:[{t:'"Coleccionista del Mes"',k:'title'},{t:'solo en roadmapData.ts',k:'title2'},{t:'no implementado',k:'sub'}],
+    desc:'Mencionado en CLAUDE.md como feature ("contest") pero en el código actual no existe controller, service, schema ni componente React — solo un ítem (id photo-contest) dentro de apps/web/src/data/roadmapData.ts.',
+    x:2900, y:255, w:210, h:0};
+
+  var CANVAS_W = 3050, CANVAS_H = 1260;
+
+  /* =========================================================
+     3. Layout: posiciona nodos de ROWS, calcula alturas
+  ========================================================= */
+  var CENTER_X = 1500;
+  ROWS.forEach(function(row){
+    var n = row.ids.length;
+    var colW = row.w + 24;
+    var totalW = n * colW;
+    var startX = CENTER_X - totalW/2 + colW/2;
+    row.ids.forEach(function(id, i){
+      var node = NODES[id];
+      node.x = startX + i*colW;
+      node.y = row.y;
+      node.w = row.w;
+    });
+  });
+
+  var LINE_H = {title:16, title2:13.5, sub:12.5, mono:11.5};
+  var PAD_TOP = 12, PAD_BOTTOM = 10;
+  Object.keys(NODES).forEach(function(id){
+    var n = NODES[id];
+    var h = PAD_TOP + PAD_BOTTOM;
+    n.lines.forEach(function(l){ h += LINE_H[l.k]; });
+    n.h = Math.max(h, 46);
+  });
+
+  /* =========================================================
+     4. DATA — edges
+  ========================================================= */
+  var EDGES = [];
+  function E(from, to, label, opt){
+    var e = {from:from, to:to, label:label||null, dashed: !!(opt&&opt.dashed)};
+    EDGES.push(e);
+    return e;
+  }
+
+  // FE UI -> FE logic
+  E('ui_login','fe_auth_context');
+  E('ui_login','fe_domain_services','register()');
+  E('ui_login','fe_upload','avatar opcional');
+  E('ui_car','fe_upload');
+  E('ui_car','fe_domain_services','createCar()');
+  E('ui_group','fe_domain_services','group.service');
+  E('ui_feed','fe_use_feed');
+  E('ui_social','fe_use_social');
+  E('ui_wheelword','fe_domain_services','wheelword.service');
+  E('ui_contact','fe_domain_services','contact.service');
+  E('ui_admin','fe_use_admin');
+  E('ui_admin','fe_domain_services','admin.service');
+
+  // FE logic internals
+  E('fe_auth_context','fe_domain_services','login() / getPublicProfile()');
+  E('fe_use_feed','fe_domain_services','getFeed()');
+  E('fe_use_social','fe_domain_services','followsApi / likesApi / notifications');
+  E('fe_use_admin','fe_domain_services','admin.service');
+  E('fe_upload','fe_api_client','GET upload/signature');
+  E('fe_upload','ext_cloudinary','sube imagen (browser→Cloudinary)');
+  E('fe_domain_services','fe_api_client','apiRequest()');
+
+  // HTTP -> guards -> controllers -> services
+  E('fe_api_client','be_guards','fetch() cruza a NestJS');
+  MODULES.forEach(function(m){
+    E('be_guards','ctl_'+m.key, m.guard);
+    if(m.svcFile) E('ctl_'+m.key,'svc_'+m.key);
+  });
+
+  // Services -> CRUD -> DB
+  E('svc_user','crud_user');
+  E('crud_user','db_user');
+  E('svc_car','crud_car');
+  E('crud_car','db_car');
+  E('svc_group','crud_group');
+  E('crud_group','db_group');
+  E('svc_feed','repo_feed');
+  E('repo_feed','db_social');
+  E('svc_follows','repo_follows');
+  E('repo_follows','db_social');
+  E('svc_likes','repo_likes');
+  E('repo_likes','db_social');
+  E('svc_notif','repo_notif');
+  E('repo_notif','db_social');
+  E('svc_admin','db_car','actualiza hidden*', {dashed:true});
+  E('svc_admin','db_group','actualiza hidden*', {dashed:true});
+  E('svc_admin','db_contact','PATCH estado', {dashed:true});
+  E('svc_contact','db_contact','insert directo');
+  E('svc_wheelword','db_wheelword','db directo (sin CRUD file)');
+  E('svc_wheelword','db_user','actualiza racha (streak)');
+  E('svc_upload','ext_cloudinary','generateSignature / delete');
+  E('svc_stats','crud_stats');
+  E('crud_stats','db_user','solo lectura', {dashed:true});
+  E('crud_stats','db_car','solo lectura', {dashed:true});
+  E('svc_import','crud_car','bulk insert', {dashed:true});
+  E('svc_user','svc_email','sendWelcomeEmail / sendForgotPasswordEmail');
+  E('svc_email','ext_resend');
+  E('svc_user','repo_feed',"createFeedEvent('user_joined')");
+
+  // Reuso cross-módulo
+  E('svc_user','crud_car','borrado en cascada', {dashed:true});
+  E('svc_user','crud_group','borrado en cascada', {dashed:true});
+  E('svc_car','crud_user','founder status', {dashed:true});
+  E('svc_car','crud_group','asociar a grupos', {dashed:true});
+  E('svc_group','crud_user', null, {dashed:true});
+  E('svc_group','crud_car','fotos', {dashed:true});
+
+  // Events
+  E('svc_car','ev_service','emitCarAdded / emitMilestoneReached / emitWishlist*');
+  E('svc_group','ev_service','emitGroupCreated');
+  E('svc_likes','ev_service','emitCarLiked / emitCarUnliked / emitGroupLiked');
+  E('svc_follows','ev_service','emitUserFollowed');
+  E('ev_service','ev_subscriber');
+  E('ev_subscriber','repo_feed','createEvent (feedEvent)');
+  E('ev_subscriber','repo_notif','create (notification)');
+  E('ev_subscriber','crud_car','lookup car/fotos', {dashed:true});
+  E('ev_subscriber','crud_group','lookup group', {dashed:true});
+
+  // Cron / Sentry
+  E('ext_cron','svc_notif','@Cron EVERY_WEEKEND → cleanupOldNotifications');
+  E('ext_sentry','ctl_user','SentryGlobalFilter (todas las excepciones)', {dashed:true});
+  E('ext_sentry','fe_auth_context','Sentry.setUser() en FE', {dashed:true});
+
+  var edgeIndex = {};
+  EDGES.forEach(function(e, i){ edgeIndex[e.from+'>'+e.to] = i; });
+
+  /* =========================================================
+     5. FLOWS
+  ========================================================= */
+  var FLOWS = [
+    {
+      id:'auth', title:'Autenticación (JWT dual)', color:'var(--primary)',
+      desc:'Login con par de tokens access(15m)/refresh(14d); refresh automático ante un 401.',
+      segments:[
+        ['ui_login','fe_auth_context','fe_domain_services','fe_api_client','be_guards','ctl_user','svc_user','crud_user','db_user']
+      ]
+    },
+    {
+      id:'register', title:'Registro + email de bienvenida', color:'var(--accent)',
+      desc:'Alta de cuenta, evento de feed "user_joined" y email de bienvenida (no bloqueante) vía Resend.',
+      segments:[
+        ['ui_login','fe_upload','ext_cloudinary'],
+        ['ui_login','fe_domain_services','fe_api_client','be_guards','ctl_user','svc_user','crud_user','db_user'],
+        ['svc_user','repo_feed','db_social'],
+        ['svc_user','svc_email','ext_resend']
+      ]
+    },
+    {
+      id:'car', title:'Alta de auto + imagen (Cloudinary)', color:'var(--secondary)',
+      desc:'Subida directa a Cloudinary, creación del auto y disparo de eventos (feed + notificación de milestone).',
+      segments:[
+        ['ui_car','fe_upload','ext_cloudinary'],
+        ['ui_car','fe_domain_services','fe_api_client','be_guards','ctl_car','svc_car','crud_car','db_car'],
+        ['svc_car','ev_service','ev_subscriber','repo_feed','db_social'],
+        ['ev_subscriber','repo_notif','db_social']
+      ]
+    },
+    {
+      id:'social', title:'Feed social: like, follow, notificación', color:'var(--danger)',
+      desc:'Ver el feed, dar like, seguir a alguien y recibir la notificación resultante — todo orquestado por el Event Emitter.',
+      segments:[
+        ['ui_feed','fe_use_feed','fe_domain_services','fe_api_client','be_guards','ctl_feed','svc_feed','repo_feed','db_social'],
+        ['ui_social','fe_use_social','fe_domain_services','fe_api_client','be_guards','ctl_likes','svc_likes','repo_likes','db_social'],
+        ['svc_likes','ev_service','ev_subscriber','repo_notif','db_social'],
+        ['ui_social','fe_use_social','fe_domain_services','fe_api_client','be_guards','ctl_follows','svc_follows','repo_follows','db_social'],
+        ['svc_follows','ev_service','ev_subscriber','repo_notif','db_social'],
+        ['ui_social','fe_use_social','fe_domain_services','fe_api_client','be_guards','ctl_notif','svc_notif','repo_notif','db_social']
+      ]
+    },
+    {
+      id:'groups', title:'Grupos (colecciones curadas)', color:'#7d6fc9',
+      desc:'Creación de un grupo y su evento de feed asociado.',
+      segments:[
+        ['ui_group','fe_domain_services','fe_api_client','be_guards','ctl_group','svc_group','crud_group','db_group'],
+        ['svc_group','ev_service','ev_subscriber','repo_feed','db_social']
+      ]
+    },
+    {
+      id:'wheelword', title:'WheelWord (juego diario)', color:'var(--accent)',
+      desc:'Palabra del día, intento del usuario y actualización de racha — acceso directo a DB, sin capa CRUD.',
+      segments:[
+        ['ui_wheelword','fe_domain_services','fe_api_client','be_guards','ctl_wheelword','svc_wheelword','db_wheelword'],
+        ['svc_wheelword','db_user']
+      ]
+    },
+    {
+      id:'admin', title:'Contacto → Moderación (Admin)', color:'var(--primary)',
+      desc:'Un visitante envía un mensaje de contacto; un admin lo revisa y, si corresponde, oculta contenido reportado.',
+      segments:[
+        ['ui_contact','fe_domain_services','fe_api_client','be_guards','ctl_contact','svc_contact','db_contact'],
+        ['ui_admin','fe_use_admin','fe_domain_services','fe_api_client','be_guards','ctl_admin','svc_admin','db_contact'],
+        ['svc_admin','db_car'],
+        ['svc_admin','db_group']
+      ]
+    }
+  ];
+
+  var STEP_LABELS = {
+    ui_login:'Login/Registro (UI)', ui_car:'Alta de Auto (UI)', ui_group:'Grupos (UI)', ui_feed:'Feed (UI)',
+    ui_social:'Like/Follow/Notif (UI)', ui_wheelword:'WheelWord (UI)', ui_contact:'Contacto (UI)', ui_admin:'Panel Admin (UI)',
+    fe_auth_context:'AuthContext', fe_use_feed:'useSocialFeed', fe_use_social:'useLike/useFollow/useNotifications',
+    fe_use_admin:'useHideContent', fe_upload:'upload.service (FE)', fe_domain_services:'Services de dominio (FE)',
+    fe_api_client:'api.ts — apiRequest()', be_guards:'Guards (Passport)',
+    ev_service:'EventsService (emite)', ev_subscriber:'EventsSubscriber (escucha)',
+    repo_feed:'feed.repository', repo_notif:'notifications.repository', repo_follows:'follows.repository', repo_likes:'likes.repository',
+    crud_user:'user.crud', crud_car:'car.crud', crud_group:'group.crud', crud_stats:'stats.crud',
+    svc_email:'email.service (Resend)',
+    ext_cloudinary:'Cloudinary', ext_resend:'Resend', ext_sentry:'Sentry', ext_cron:'Cron semanal',
+    db_user:'Tabla user', db_car:'Tabla car', db_group:'Tabla group', db_social:'Tablas sociales', db_wheelword:'Tablas WheelWord', db_contact:'Tabla contactMessage', db_settings:'Tabla settings'
+  };
+  MODULES.forEach(function(m){
+    STEP_LABELS['ctl_'+m.key] = m.name+' — Controller';
+    if(m.svcFile) STEP_LABELS['svc_'+m.key] = m.name+' — Service';
+  });
+
+  /* =========================================================
+     6. RENDER
+  ========================================================= */
+  var svg = document.getElementById('svg');
+  var edgesLayer = document.getElementById('edgesLayer');
+  var nodesLayer = document.getElementById('nodesLayer');
+  var SVGNS = 'http://www.w3.org/2000/svg';
+
+  function svgEl(tag, attrs){
+    var el = document.createElementNS(SVGNS, tag);
+    for(var k in attrs){ el.setAttribute(k, attrs[k]); }
+    return el;
+  }
+
+  function anchorsFor(a, b){
+    var dx = b.x - a.x, dy = b.y - a.y;
+    if(Math.abs(dy) >= Math.abs(dx)){
+      var sgn = dy === 0 ? 1 : (dy > 0 ? 1 : -1);
+      return [a.x, a.y + sgn*a.h/2, b.x, b.y - sgn*b.h/2];
+    } else {
+      var sgnX = dx === 0 ? 1 : (dx > 0 ? 1 : -1);
+      return [a.x + sgnX*a.w/2, a.y, b.x - sgnX*b.w/2, b.y];
+    }
+  }
+
+  function bezierPath(x1,y1,x2,y2){
+    var dx = x2-x1, dy = y2-y1;
+    if(Math.abs(dy) >= Math.abs(dx)){
+      var c = dy*0.5;
+      return 'M'+x1+','+y1+' C'+x1+','+(y1+c)+' '+x2+','+(y2-c)+' '+x2+','+y2;
+    } else {
+      var c2 = dx*0.5;
+      return 'M'+x1+','+y1+' C'+(x1+c2)+','+y1+' '+(x2-c2)+','+y2+' '+x2+','+y2;
+    }
+  }
+
+  // edges
+  EDGES.forEach(function(e, i){
+    var a = NODES[e.from], b = NODES[e.to];
+    if(!a || !b){ return; }
+    var pts = anchorsFor(a,b);
+    var d = bezierPath(pts[0],pts[1],pts[2],pts[3]);
+    var g = svgEl('g', {'class':'edge-group', 'data-idx':i});
+    var hit = svgEl('path', {'class':'edge-hit', d:d});
+    var line = svgEl('path', {'class':'edge-line'+(e.dashed?' dashed-base':''), d:d, 'marker-end':'url(#arrow-default)'});
+    g.appendChild(hit);
+    g.appendChild(line);
+    g.addEventListener('mouseenter', function(evt){ showTooltip(edgeTooltip(e), evt.clientX, evt.clientY); });
+    g.addEventListener('mousemove', function(evt){ moveTooltip(evt.clientX, evt.clientY); });
+    g.addEventListener('mouseleave', function(){ hideTooltip(); });
+    edgesLayer.appendChild(g);
+    e._el = line; e._path = d;
+  });
+
+  function edgeTooltip(e){
+    var fromL = STEP_LABELS[e.from] || e.from;
+    var toL = STEP_LABELS[e.to] || e.to;
+    return {title: fromL+' → '+toL, path: e.label ? e.label : '', desc:''};
+  }
+
+  // nodes
+  Object.keys(NODES).forEach(function(id){
+    var n = NODES[id];
+    var g = svgEl('g', {'class':'node n-'+n.cluster, 'data-id':id, transform:'translate('+n.x+','+n.y+')'});
+    var rect = svgEl('rect', {x:-n.w/2, y:-n.h/2, width:n.w, height:n.h, rx:10, ry:10});
+    g.appendChild(rect);
+
+    var totalH = 0;
+    n.lines.forEach(function(l){ totalH += LINE_H[l.k]; });
+    var cy = -totalH/2 + LINE_H[n.lines[0].k]*0.72;
+    n.lines.forEach(function(l, idx){
+      var fs = l.k==='title'?12.5 : l.k==='title2'?10.8 : l.k==='sub'?9 : 8.6;
+      var txt = svgEl('text', {x:0, y: idx===0 ? cy : (cy += LINE_H[n.lines[idx-1].k]), 'text-anchor':'middle', 'font-size':fs, 'class':'l-'+l.k});
+      txt.textContent = l.t;
+      g.appendChild(txt);
+    });
+
+    g.addEventListener('mouseenter', function(evt){ showTooltip({title:(n.lines[0]?n.lines[0].t:id), path:(n.lines.filter(function(l){return l.k==='sub';})[0]||{}).t||'', desc:n.desc||''}, evt.clientX, evt.clientY); });
+    g.addEventListener('mousemove', function(evt){ moveTooltip(evt.clientX, evt.clientY); });
+    g.addEventListener('mouseleave', function(){ hideTooltip(); });
+    g.addEventListener('click', function(evt){ evt.stopPropagation(); pinTooltip({title:(n.lines[0]?n.lines[0].t:id), path:(n.lines.filter(function(l){return l.k==='sub';})[0]||{}).t||'', desc:n.desc||''}, evt.clientX, evt.clientY); });
+
+    nodesLayer.appendChild(g);
+    n._el = g;
+  });
+
+  /* =========================================================
+     7. Tooltip
+  ========================================================= */
+  var tooltip = document.getElementById('tooltip');
+  var pinned = false;
+
+  function renderTooltip(data){
+    var html = '<div class="tt-title">'+escapeHtml(data.title)+'</div>';
+    if(data.path) html += '<div class="tt-path">'+escapeHtml(data.path)+'</div>';
+    if(data.desc) html += '<div class="tt-desc">'+escapeHtml(data.desc)+'</div>';
+    tooltip.innerHTML = html;
+  }
+  function escapeHtml(s){
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+  function showTooltip(data, x, y){
+    if(pinned) return;
+    renderTooltip(data);
+    tooltip.classList.add('show');
+    moveTooltip(x,y);
+  }
+  function moveTooltip(x, y){
+    var pad = 16;
+    var rect = tooltip.getBoundingClientRect();
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var left = x + pad, top = y + pad;
+    if(left + rect.width + 10 > vw) left = x - rect.width - pad;
+    if(top + rect.height + 10 > vh) top = y - rect.height - pad;
+    tooltip.style.left = Math.max(6,left)+'px';
+    tooltip.style.top = Math.max(6,top)+'px';
+  }
+  function hideTooltip(){
+    if(pinned) return;
+    tooltip.classList.remove('show');
+  }
+  function pinTooltip(data, x, y){
+    renderTooltip(data);
+    tooltip.innerHTML += '<div class="tt-pin">Click en el fondo del diagrama para cerrar</div>';
+    tooltip.classList.add('show');
+    moveTooltip(x,y);
+    pinned = true;
+  }
+  function unpinTooltip(){
+    pinned = false;
+    tooltip.classList.remove('show');
+  }
+
+  /* =========================================================
+     8. Flow selection / highlighting
+  ========================================================= */
+  var activeFlow = null;
+  var flowListEl = document.getElementById('flowList');
+  var activeFlowPill = document.getElementById('activeFlowPill');
+  var activeFlowLabel = document.getElementById('activeFlowLabel');
+
+  FLOWS.forEach(function(flow, idx){
+    var card = document.createElement('div');
+    card.className = 'flow-card';
+    card.dataset.flowId = flow.id;
+
+    var row = document.createElement('div');
+    row.className = 'row';
+    var badge = document.createElement('div');
+    badge.className = 'flow-badge';
+    badge.style.background = flow.color;
+    badge.textContent = String(idx+1);
+    var titleWrap = document.createElement('div');
+    var title = document.createElement('div');
+    title.className = 'title';
+    title.textContent = flow.title;
+    titleWrap.appendChild(title);
+    row.appendChild(badge);
+    row.appendChild(titleWrap);
+
+    var desc = document.createElement('div');
+    desc.className = 'desc';
+    desc.textContent = flow.desc;
+
+    var steps = document.createElement('div');
+    steps.className = 'steps';
+    var seen = {};
+    var stepNum = 0;
+    flow.segments.forEach(function(seg){
+      for(var i=0;i<seg.length-1;i++){
+        var fromId = seg[i], toId = seg[i+1];
+        if(!seen[fromId]){ seen[fromId]=1; stepNum++; steps.appendChild(stepLine(stepNum, fromId)); }
+      }
+      var lastId = seg[seg.length-1];
+      if(!seen[lastId]){ seen[lastId]=1; stepNum++; steps.appendChild(stepLine(stepNum, lastId)); }
+    });
+
+    card.appendChild(row);
+    card.appendChild(desc);
+    card.appendChild(steps);
+    card.addEventListener('click', function(){
+      if(activeFlow === flow.id){ setActiveFlow(null); } else { setActiveFlow(flow.id); }
+    });
+    flowListEl.appendChild(card);
+  });
+
+  function stepLine(num, nodeId){
+    var el = document.createElement('div');
+    el.className = 'step-line';
+    var n = document.createElement('span');
+    n.className = 'step-num';
+    n.textContent = num;
+    var t = document.createElement('span');
+    t.innerHTML = '<b>'+escapeHtml(STEP_LABELS[nodeId]||nodeId)+'</b>';
+    el.appendChild(n);
+    el.appendChild(t);
+    return el;
+  }
+
+  var dynamicLabels = [];
+  function clearDynamicLabels(){
+    dynamicLabels.forEach(function(el){ el.remove(); });
+    dynamicLabels = [];
+  }
+
+  function setActiveFlow(flowId){
+    activeFlow = flowId;
+    document.querySelectorAll('.flow-card').forEach(function(c){
+      c.classList.toggle('active', c.dataset.flowId === flowId);
+    });
+    clearDynamicLabels();
+
+    if(!flowId){
+      Object.keys(NODES).forEach(function(id){ NODES[id]._el.classList.remove('dimmed','active-node'); removeStepBadge(NODES[id]); });
+      EDGES.forEach(function(e){ e._el.classList.remove('dimmed','active-edge'); e._el.setAttribute('marker-end','url(#arrow-default)'); });
+      activeFlowPill.classList.remove('show');
+      return;
+    }
+
+    var flow = FLOWS.filter(function(f){ return f.id===flowId; })[0];
+    var activeNodes = {}; var activeEdges = {}; var order = {}; var counter = 0;
+
+    flow.segments.forEach(function(seg){
+      seg.forEach(function(id){ if(!(id in order)){ order[id]=++counter; } activeNodes[id]=1; });
+      for(var i=0;i<seg.length-1;i++){
+        var key = seg[i]+'>'+seg[i+1];
+        var idx = edgeIndex[key];
+        if(idx !== undefined) activeEdges[idx]=1;
+      }
+    });
+
+    Object.keys(NODES).forEach(function(id){
+      var n = NODES[id];
+      if(activeNodes[id]){
+        n._el.classList.remove('dimmed');
+        n._el.classList.add('active-node');
+        addStepBadge(n, order[id]);
+      } else {
+        n._el.classList.add('dimmed');
+        n._el.classList.remove('active-node');
+        removeStepBadge(n);
+      }
+    });
+
+    EDGES.forEach(function(e, i){
+      if(activeEdges[i]){
+        e._el.classList.remove('dimmed');
+        e._el.classList.add('active-edge');
+        e._el.setAttribute('marker-end','url(#arrow-active)');
+        if(e.label) addEdgeLabel(e);
+      } else {
+        e._el.classList.add('dimmed');
+        e._el.classList.remove('active-edge');
+        e._el.setAttribute('marker-end','url(#arrow-default)');
+      }
+    });
+
+    activeFlowLabel.textContent = flow.title;
+    activeFlowPill.classList.add('show');
+  }
+
+  function addEdgeLabel(e){
+    try{
+      var len = e._el.getTotalLength();
+      var pt = e._el.getPointAtLength(len/2);
+      var text = e.label;
+      var approxW = Math.min(220, text.length*5.4+10);
+      var bg = svgEl('rect', {x:pt.x-approxW/2, y:pt.y-8, width:approxW, height:14, rx:4, 'class':'edge-label-bg'});
+      var t = svgEl('text', {x:pt.x, y:pt.y+2.5, 'text-anchor':'middle', 'class':'edge-label'});
+      t.textContent = text;
+      edgesLayer.appendChild(bg);
+      edgesLayer.appendChild(t);
+      dynamicLabels.push(bg); dynamicLabels.push(t);
+    }catch(err){}
+  }
+
+  function addStepBadge(n, num){
+    removeStepBadge(n);
+    var g = svgEl('g', {'class':'step-badge', transform:'translate('+(n.w/2-4)+','+(-n.h/2+4)+')'});
+    var c = svgEl('circle', {r:9, fill:'var(--accent)'});
+    var t = svgEl('text', {x:0, y:3.5, 'text-anchor':'middle', 'font-size':10});
+    t.textContent = num;
+    g.appendChild(c); g.appendChild(t);
+    n._el.appendChild(g);
+    n._badge = g;
+  }
+  function removeStepBadge(n){
+    if(n._badge){ n._badge.remove(); n._badge = null; }
+  }
+
+  document.getElementById('clearFlowBtn').addEventListener('click', function(){ setActiveFlow(null); });
+
+  /* =========================================================
+     9. Pan & zoom
+  ========================================================= */
+  var viewport = document.getElementById('viewport');
+  var pane = document.getElementById('diagramPane');
+  var pan = {x:0, y:0, k:1};
+  var isPanning = false, lastPt = null;
+
+  function applyTransform(){
+    viewport.setAttribute('transform', 'translate('+pan.x+','+pan.y+') scale('+pan.k+')');
+    document.getElementById('zoomLevel').textContent = Math.round(pan.k*100)+'%';
+  }
+
+  function screenToSVG(clientX, clientY){
+    var pt = svg.createSVGPoint();
+    pt.x = clientX; pt.y = clientY;
+    var ctm = svg.getScreenCTM();
+    if(!ctm) return {x:0,y:0};
+    return pt.matrixTransform(ctm.inverse());
+  }
+
+  function zoomAt(clientX, clientY, factor){
+    var p = screenToSVG(clientX, clientY);
+    var localX = (p.x - pan.x)/pan.k;
+    var localY = (p.y - pan.y)/pan.k;
+    var newK = Math.min(3, Math.max(0.3, pan.k*factor));
+    pan.x = p.x - localX*newK;
+    pan.y = p.y - localY*newK;
+    pan.k = newK;
+    applyTransform();
+  }
+
+  pane.addEventListener('wheel', function(evt){
+    evt.preventDefault();
+    var factor = evt.deltaY < 0 ? 1.12 : 0.89;
+    zoomAt(evt.clientX, evt.clientY, factor);
+  }, {passive:false});
+
+  pane.addEventListener('mousedown', function(evt){
+    if(evt.target.closest('.node') || evt.target.closest('.edge-group')) return;
+    isPanning = true;
+    pane.classList.add('panning');
+    lastPt = screenToSVG(evt.clientX, evt.clientY);
+  });
+  window.addEventListener('mousemove', function(evt){
+    if(!isPanning) return;
+    var p = screenToSVG(evt.clientX, evt.clientY);
+    pan.x += (p.x - lastPt.x);
+    pan.y += (p.y - lastPt.y);
+    lastPt = p;
+    applyTransform();
+  });
+  window.addEventListener('mouseup', function(){ isPanning=false; pane.classList.remove('panning'); });
+
+  // touch pan (single finger)
+  pane.addEventListener('touchstart', function(evt){
+    if(evt.touches.length !== 1) return;
+    var t = evt.touches[0];
+    if(t.target.closest('.node') || t.target.closest('.edge-group')) return;
+    isPanning = true;
+    lastPt = screenToSVG(t.clientX, t.clientY);
+  }, {passive:true});
+  pane.addEventListener('touchmove', function(evt){
+    if(!isPanning || evt.touches.length!==1) return;
+    var t = evt.touches[0];
+    var p = screenToSVG(t.clientX, t.clientY);
+    pan.x += (p.x - lastPt.x);
+    pan.y += (p.y - lastPt.y);
+    lastPt = p;
+    applyTransform();
+  }, {passive:true});
+  pane.addEventListener('touchend', function(){ isPanning=false; });
+
+  document.getElementById('zoomIn').addEventListener('click', function(){
+    var r = pane.getBoundingClientRect();
+    zoomAt(r.left+r.width/2, r.top+r.height/2, 1.25);
+  });
+  document.getElementById('zoomOut').addEventListener('click', function(){
+    var r = pane.getBoundingClientRect();
+    zoomAt(r.left+r.width/2, r.top+r.height/2, 0.8);
+  });
+  document.getElementById('zoomReset').addEventListener('click', function(){
+    pan = {x:0,y:0,k:1};
+    applyTransform();
+  });
+
+  pane.addEventListener('click', function(evt){
+    if(evt.target.closest('.node') || evt.target.closest('.edge-group')) return;
+    unpinTooltip();
+  });
+
+  document.addEventListener('keydown', function(evt){
+    if(evt.key === 'Escape'){ setActiveFlow(null); unpinTooltip(); }
+  });
+
+  /* =========================================================
+     10. Legend toggle + stats
+  ========================================================= */
+  document.getElementById('legendHead').addEventListener('click', function(){
+    document.getElementById('legend').classList.toggle('collapsed');
+  });
+
+  var nodeCount = Object.keys(NODES).length;
+  var edgeCount = EDGES.length;
+  var tableCount = 7 + 6; // schema files list below, kept simple: real count computed from db nodes
+  document.getElementById('statsLine').textContent =
+    nodeCount+' componentes · '+edgeCount+' conexiones · '+FLOWS.length+' flujos trazados · NestJS 11 + Drizzle + React 19';
+
+  applyTransform();
+})();
+</script>
+</body>
+</html>

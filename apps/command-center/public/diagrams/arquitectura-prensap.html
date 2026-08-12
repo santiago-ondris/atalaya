@@ -1,0 +1,1432 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prensapp — Arquitectura del sistema</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2310120F'/%3E%3Ccircle cx='16' cy='16' r='6' fill='%23D7FF3F'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --background: #F3F1E8;
+    --surface1: #F7F5ED;
+    --surface2: #E5E2D7;
+    --surface3: #CFCCC0;
+    --border: #E5E2D7;
+    --border-visible: #A8A69C;
+    --text1: #10120F;
+    --text2: #5D6158;
+    --text3: #7C7E75;
+    --text4: #A8A69C;
+    --signal: #D7FF3F;
+    --signal-hover: #DFFF56;
+    --signal-subtle: #F1FFAD;
+    --success: #18864B;
+    --success-bg: #EAF8EF;
+    --warning: #D98916;
+    --warning-bg: #FFF5DE;
+    --error: #C83D32;
+    --error-bg: #FFF0ED;
+    --font-display: "Arial Narrow", "Helvetica Neue Condensed", sans-serif;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, "Cascadia Mono", Consolas, "Courier New", monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: var(--background);
+    color: var(--text1);
+    font-family: var(--font-sans);
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  ::selection { background: var(--signal); color: var(--text1); }
+
+  /* ---------- Header ---------- */
+  header {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 14px 22px;
+    background: var(--text1);
+    color: var(--surface1);
+    border-bottom: 3px solid var(--signal);
+    flex-wrap: wrap;
+  }
+
+  .brand-mark {
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    background: var(--signal);
+    display: grid;
+    place-items: center;
+    flex: none;
+  }
+
+  .brand-mark span {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 20px;
+    color: var(--text1);
+    letter-spacing: -0.02em;
+  }
+
+  .header-titles h1 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 20px;
+    letter-spacing: -0.01em;
+    text-transform: uppercase;
+    line-height: 1.05;
+  }
+
+  .header-titles p {
+    margin: 3px 0 0;
+    font-size: 12.5px;
+    color: var(--text4);
+  }
+
+  .header-stats {
+    margin-left: auto;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .stat-pill {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    background: #1B1E1A;
+    border: 1px solid #292C27;
+    color: var(--signal);
+    border-radius: 999px;
+    padding: 6px 12px;
+    white-space: nowrap;
+  }
+
+  .stat-pill b { color: var(--surface1); font-weight: 700; }
+
+  /* ---------- Legend / how-to bar ---------- */
+  .subheader {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    padding: 9px 22px;
+    background: var(--surface1);
+    border-bottom: 1px solid var(--border-visible);
+    flex-wrap: wrap;
+  }
+
+  .howto {
+    font-size: 12px;
+    color: var(--text2);
+  }
+
+  .howto strong { color: var(--text1); }
+
+  .legend {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-left: auto;
+  }
+
+  .legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text2);
+    font-weight: 600;
+  }
+
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+    flex: none;
+    border: 1px solid var(--border-visible);
+  }
+
+  /* ---------- Layout ---------- */
+  .layout {
+    flex: 1 1 auto;
+    display: flex;
+    min-height: 0;
+  }
+
+  #diagram-wrap {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: auto;
+    position: relative;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    background-color: var(--background);
+    padding: 36px;
+    cursor: grab;
+    touch-action: none;
+  }
+
+  #diagram-wrap.dragging {
+    cursor: grabbing;
+    user-select: none;
+  }
+
+  #diagram-wrap.dragging .node { pointer-events: none; }
+
+  #graph-content {
+    position: relative;
+    width: max-content;
+  }
+
+  svg#edges {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: visible;
+  }
+
+  .edge-baseline {
+    fill: none;
+    stroke: var(--border-visible);
+    stroke-width: 1.4;
+    opacity: 0.5;
+    transition: opacity 0.25s ease;
+  }
+
+  #edges.flow-active .edge-baseline { opacity: 0.05; }
+
+  .edge-flow-casing {
+    fill: none;
+    stroke: var(--text1);
+    stroke-width: 5.5;
+    stroke-linecap: round;
+    opacity: 0.9;
+  }
+
+  .edge-flow-highlight {
+    fill: none;
+    stroke: var(--signal);
+    stroke-width: 2.6;
+    stroke-linecap: round;
+    stroke-dasharray: 7 7;
+    animation: dashflow 0.7s linear infinite;
+  }
+
+  @keyframes dashflow { to { stroke-dashoffset: -28; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .edge-flow-highlight { animation: none; }
+  }
+
+  /* ---------- Columns / nodes ---------- */
+  #columns {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 60px;
+    z-index: 1;
+  }
+
+  .column {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    width: 216px;
+    flex: none;
+  }
+
+  .column-head {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: var(--text1);
+    border-bottom: 2px solid var(--text1);
+    padding-bottom: 8px;
+  }
+
+  .column-head small {
+    display: block;
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: 10.5px;
+    letter-spacing: 0.01em;
+    text-transform: none;
+    color: var(--text3);
+    margin-top: 2px;
+  }
+
+  .subgroup { display: flex; flex-direction: column; gap: 10px; }
+
+  .subgroup-head {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--text3);
+  }
+
+  .node {
+    position: relative;
+    background: var(--surface1);
+    border: 1.5px solid var(--border-visible);
+    border-radius: 8px;
+    padding: 9px 11px 10px;
+    cursor: default;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.25s ease, border-color 0.15s ease;
+  }
+
+  .node:hover, .node:focus-visible {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(16,18,15,0.14);
+    outline: none;
+  }
+
+  .node-chip {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 8.5px;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 999px;
+    margin-bottom: 6px;
+  }
+
+  .node-title {
+    display: block;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 14px;
+    line-height: 1.15;
+    color: var(--text1);
+    text-transform: none;
+  }
+
+  .node-sub {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text3);
+    margin-top: 3px;
+    word-break: break-word;
+  }
+
+  .node-badge {
+    position: absolute;
+    top: -9px;
+    right: -9px;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--signal);
+    border: 2px solid var(--text1);
+    color: var(--text1);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .node.in-path .node-badge { display: flex; }
+
+  .node.in-path {
+    border-color: var(--text1);
+    box-shadow: 0 0 0 3px var(--signal-subtle), 0 8px 18px rgba(16,18,15,0.18);
+    background: var(--surface1);
+  }
+
+  .node.dim { opacity: 0.22; filter: grayscale(0.4); }
+
+  /* group chip colors */
+  .node[data-group="public"] .node-chip,
+  .node[data-group="journalist"] .node-chip,
+  .node[data-group="guard"] .node-chip,
+  .node[data-group="admin"] .node-chip { background: var(--surface2); color: var(--text2); }
+
+  .node[data-group="core"] .node-chip { background: var(--surface3); color: var(--text1); }
+
+  .node[data-group="edge"] .node-chip { background: var(--warning-bg); color: var(--warning); }
+
+  .node[data-group="handler"] .node-chip { background: var(--signal-subtle); color: var(--text1); }
+
+  .node[data-group="service"] .node-chip { background: var(--success-bg); color: var(--success); }
+
+  .node[data-group="data"] {
+    background: var(--text1);
+    border-color: var(--text1);
+  }
+  .node[data-group="data"] .node-title { color: var(--surface1); }
+  .node[data-group="data"] .node-sub { color: var(--text4); }
+  .node[data-group="data"] .node-chip { background: var(--signal); color: var(--text1); }
+
+  .node[data-group="external"] {
+    border-style: dashed;
+    background: var(--surface2);
+  }
+  .node[data-group="external"] .node-chip { background: var(--surface3); color: var(--text2); }
+
+  /* ---------- Flow panel ---------- */
+  #flow-panel {
+    flex: 0 0 400px;
+    width: 400px;
+    border-left: 1px solid var(--border-visible);
+    background: var(--surface1);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .flow-panel-head {
+    flex: 0 0 auto;
+    padding: 16px 18px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .flow-panel-head h2 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 17px;
+    text-transform: uppercase;
+    letter-spacing: 0.01em;
+  }
+
+  .flow-panel-head p {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: var(--text2);
+  }
+
+  #reset-flow {
+    margin-top: 10px;
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 700;
+    padding: 7px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border-visible);
+    background: transparent;
+    color: var(--text1);
+    cursor: pointer;
+    display: none;
+  }
+
+  #reset-flow.visible { display: inline-flex; align-items: center; gap: 6px; }
+  #reset-flow:hover { background: var(--surface2); }
+
+  #flow-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .flow-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .flow-item {
+    all: unset;
+    cursor: pointer;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 13px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .flow-item:hover { background: var(--surface2); }
+
+  .flow-item:focus-visible {
+    outline: 3px solid var(--signal-subtle);
+    outline-offset: -3px;
+  }
+
+  .flow-item.active {
+    background: var(--text1);
+  }
+
+  .flow-index {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text3);
+    flex: none;
+    width: 20px;
+    padding-top: 1px;
+  }
+
+  .flow-item.active .flow-index { color: var(--signal); }
+
+  .flow-texts { min-width: 0; }
+
+  .flow-name {
+    display: block;
+    font-weight: 700;
+    font-size: 13.5px;
+    color: var(--text1);
+    line-height: 1.25;
+  }
+
+  .flow-item.active .flow-name { color: var(--surface1); }
+
+  .flow-summary {
+    display: block;
+    margin-top: 3px;
+    font-size: 11.5px;
+    color: var(--text2);
+    line-height: 1.35;
+  }
+
+  .flow-item.active .flow-summary { color: var(--text4); }
+
+  /* ---------- Flow detail ---------- */
+  #flow-detail {
+    flex: 0 0 auto;
+    max-height: 46%;
+    overflow-y: auto;
+    border-top: 3px solid var(--signal);
+    background: var(--text1);
+    color: var(--surface1);
+    padding: 16px 18px 18px;
+    display: none;
+  }
+
+  #flow-detail.visible { display: block; }
+
+  #flow-detail h3 {
+    margin: 0 0 6px;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 16px;
+    text-transform: uppercase;
+    color: var(--signal);
+  }
+
+  #flow-detail .flow-detail-summary {
+    font-size: 12.5px;
+    color: var(--text4);
+    margin: 0 0 12px;
+    line-height: 1.45;
+  }
+
+  #flow-detail ol {
+    margin: 0;
+    padding-left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  #flow-detail ol li {
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--surface1);
+  }
+
+  #flow-detail ol li::marker {
+    font-family: var(--font-mono);
+    color: var(--signal);
+    font-weight: 700;
+  }
+
+  /* ---------- Tooltip ---------- */
+  #tooltip {
+    position: fixed;
+    z-index: 50;
+    max-width: 300px;
+    background: var(--text1);
+    color: var(--surface1);
+    border-radius: 8px;
+    padding: 11px 13px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    box-shadow: 0 10px 30px rgba(16,18,15,0.35);
+    border-top: 3px solid var(--signal);
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.12s ease, transform 0.12s ease;
+  }
+
+  #tooltip.visible { opacity: 1; transform: translateY(0); }
+
+  #tooltip .tt-title {
+    display: block;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 13.5px;
+    text-transform: uppercase;
+    color: var(--signal);
+    margin-bottom: 4px;
+  }
+
+  #tooltip .tt-sub {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    color: var(--text4);
+    margin-bottom: 6px;
+  }
+
+  /* ---------- Scrollbars ---------- */
+  #diagram-wrap::-webkit-scrollbar, #flow-scroll::-webkit-scrollbar, #flow-detail::-webkit-scrollbar { width: 10px; height: 10px; }
+  #diagram-wrap::-webkit-scrollbar-thumb, #flow-scroll::-webkit-scrollbar-thumb, #flow-detail::-webkit-scrollbar-thumb { background: var(--border-visible); border-radius: 999px; }
+  #diagram-wrap::-webkit-scrollbar-track { background: transparent; }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 980px) {
+    .layout { flex-direction: column; }
+    #diagram-wrap { flex: 0 0 56vh; padding: 22px; }
+    #flow-panel { flex: 1 1 auto; width: 100%; border-left: none; border-top: 1px solid var(--border-visible); }
+    .header-stats { width: 100%; margin-left: 0; }
+    .subheader { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .legend { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand-mark"><span>P</span></div>
+  <div class="header-titles">
+    <h1>Prensapp — Arquitectura del sistema</h1>
+    <p>Acreditación de prensa y control de acceso · Club Atenas</p>
+  </div>
+  <div class="header-stats">
+    <span class="stat-pill"><b id="stat-nodes">–</b> componentes</span>
+    <span class="stat-pill"><b id="stat-edges">–</b> conexiones</span>
+    <span class="stat-pill"><b id="stat-flows">–</b> flujos</span>
+  </div>
+</header>
+
+<div class="subheader">
+  <p class="howto">Pasá el mouse sobre un componente para ver el detalle, o arrastrá el fondo para moverte por el diagrama. Elegí un flujo a la derecha para resaltar su recorrido completo — <strong>los números indican el orden de los pasos.</strong></p>
+  <div class="legend">
+    <span class="legend-item"><span class="legend-dot" style="background:var(--surface2)"></span>Cliente</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--warning-bg);border-color:var(--warning)"></span>Middleware</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--signal-subtle);border-color:var(--text1)"></span>Handler</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--success-bg);border-color:var(--success)"></span>Servicio</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--text1)"></span>Datos</span>
+    <span class="legend-item"><span class="legend-dot" style="background:var(--surface2);border-style:dashed"></span>Externo</span>
+  </div>
+</div>
+
+<div class="layout">
+  <div id="diagram-wrap">
+    <div id="graph-content">
+      <svg id="edges"><defs></defs><g id="edges-baseline"></g><g id="edges-flow"></g></svg>
+      <div id="columns"></div>
+    </div>
+  </div>
+
+  <aside id="flow-panel">
+    <div class="flow-panel-head">
+      <h2>Flujos del sistema</h2>
+      <p>Recorridos reales extremo a extremo, del click en la interfaz a la base de datos.</p>
+      <button id="reset-flow" type="button">✕ Ver arquitectura completa</button>
+    </div>
+    <div id="flow-scroll">
+      <div class="flow-list" id="flow-list"></div>
+    </div>
+    <div id="flow-detail">
+      <h3 id="flow-detail-title"></h3>
+      <p class="flow-detail-summary" id="flow-detail-summary"></p>
+      <ol id="flow-detail-steps"></ol>
+    </div>
+  </aside>
+</div>
+
+<div id="tooltip"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* =========================================================
+     DATA: nodos
+     ========================================================= */
+  const NODES = [
+    // --- Cliente · Público / Auth ---
+    { id: "landing", group: "public", col: "client-a", sub: "public", title: "Landing", meta: "/", desc: `Página pública de marketing y presentación de Prensapp. No requiere sesión y es la puerta de entrada antes de loguearse o registrarse.` },
+    { id: "login", group: "public", col: "client-a", sub: "public", title: "Login", meta: "/login", desc: `Formulario de inicio de sesión (email + password). Llama a AuthProvider.login(), que hace POST /auth/login y redirige según el rol: admin → /admin, guardia → /guardia, periodista → /mi-credencial.` },
+    { id: "register", group: "public", col: "client-a", sub: "public", title: "Registro", meta: "/registro", desc: `Alta de periodista: nombre, DNI, teléfono, medio, foto (recortada con PhotoCropper) y password. La foto se envía como data URL embebida en el propio payload de registro — no pasa por el endpoint de subida a R2. Llama a AuthProvider.register().` },
+    { id: "forgot", group: "public", col: "client-a", sub: "public", title: "Recuperar password", meta: "/recuperar-password", desc: `Pide el email y llama a POST /auth/forgot-password. La respuesta del backend es siempre genérica (no revela si el email existe) por seguridad.` },
+    { id: "reset", group: "public", col: "client-a", sub: "public", title: "Restablecer password", meta: "/reset-password", desc: `Lee el token de la URL (?token=...) y define una password nueva vía POST /auth/reset-password. Al completarse, revoca todas las sesiones activas del usuario.` },
+
+    // --- Cliente · Periodista ---
+    { id: "j_profile", group: "journalist", col: "client-a", sub: "journalist", title: "Perfil", meta: "/perfil", desc: `Edición de datos personales (nombre, teléfono, medio) y reemplazo de foto. Usa authFetch para PUT /journalists/me y PUT /journalists/me/photo.` },
+    { id: "j_credential", group: "journalist", col: "client-a", sub: "journalist", title: "Mi credencial", meta: "/mi-credencial", desc: `Muestra la credencial de prensa (CredentialCard) con el estado de la acreditación. Es la página de inicio por defecto tras loguearse como periodista.` },
+    { id: "j_qr", group: "journalist", col: "client-a", sub: "journalist", title: "Mi QR", meta: "/mi-qr", desc: `Genera y muestra el QR de acceso para el próximo partido habilitado. Pide un token a GET /journalists/me/qr-token y cachea el secreto TOTP para regenerar el QR localmente cada 30s, incluso sin conexión.` },
+
+    // --- Cliente · Guardia ---
+    { id: "g_scan", group: "guard", col: "client-a", sub: "guard", title: "Escanear", meta: "/guardia", desc: `Pantalla de escaneo de QR en el ingreso. Con conexión valida contra POST /guard/scan; sin conexión valida el código TOTP localmente y guarda el ingreso como pendiente en IndexedDB.` },
+    { id: "g_list", group: "guard", col: "client-a", sub: "guard", title: "Lista de acceso", meta: "/guardia/lista", desc: `Lista de periodistas habilitados para el partido actual, sincronizada offline-first vía GET /guard/sync y guardada en IndexedDB para funcionar sin señal en la puerta del estadio.` },
+
+    // --- Cliente · Admin ---
+    { id: "a_dashboard", group: "admin", col: "client-b", sub: "admin", title: "Dashboard", meta: "/admin", desc: `Panel principal del admin: accesos directos y contador de acreditaciones activas (GET /admin/stats/active-count).` },
+    { id: "a_requests", group: "admin", col: "client-b", sub: "admin", title: "Solicitudes", meta: "/admin/solicitudes", desc: `Bandeja de solicitudes de acreditación pendientes. Permite aprobar (con fecha de vencimiento) o rechazar (con motivo) vía POST /admin/accreditations/{id}/approve|reject.` },
+    { id: "a_journalists", group: "admin", col: "client-b", sub: "admin", title: "Periodistas", meta: "/admin/periodistas", desc: `Listado y búsqueda de periodistas acreditados, con filtros por estado. Fuente: GET /admin/journalists.` },
+    { id: "a_journalist_detail", group: "admin", col: "client-b", sub: "admin", title: "Detalle periodista", meta: "/admin/periodistas/:id", desc: `Historial de accesos y asistencia, revocación, cambio de estado activo/pasivo y habilitación de acceso puntual a un partido (match_access_grants).` },
+    { id: "a_matches", group: "admin", col: "client-b", sub: "admin", title: "Partidos", meta: "/admin/partidos", desc: `ABM de partidos (rival, fecha, condición local/visitante). Define la ventana de acceso QR de cada partido.` },
+    { id: "a_users", group: "admin", col: "client-b", sub: "admin", title: "Usuarios", meta: "/admin/usuarios", desc: `Alta y baja de usuarios del sistema (admin y guardia) vía POST /admin/users y DELETE /admin/users/{id}.` },
+    { id: "a_config", group: "admin", col: "client-b", sub: "admin", title: "Configuración", meta: "/admin/configuracion", desc: `Configuración global: vencimiento por defecto, equipo propio, estilo y plantilla visual de la credencial (CredentialDesigner) con subida de imagen.` },
+    { id: "a_info", group: "admin", col: "client-b", sub: "admin", title: "Información", meta: "/admin/informacion", desc: `Página de ayuda para el equipo admin sobre el funcionamiento del sistema.` },
+
+    // --- Cliente · Núcleo ---
+    { id: "auth_provider", group: "core", col: "client-c", sub: "core", title: "AuthProvider", meta: "features/auth/AuthProvider.tsx", desc: `Contexto de React que guarda el access token en memoria, expone login/register/logout/authFetch y renueva la sesión automáticamente ante un 401 llamando a /auth/refresh.` },
+    { id: "api_client", group: "core", col: "client-c", sub: "core", title: "Cliente API", meta: "lib/api.ts", desc: `Wrapper único de fetch usado por toda la app: agrega credentials:"include", maneja errores tipados (ApiError / NetworkError) y emite eventos globales de sesión expirada o sin conexión.` },
+    { id: "indexeddb", group: "core", col: "client-c", sub: "core", title: "IndexedDB", meta: "features/guard/storage.ts", desc: `Base local ("prensapp-guard") usada por la app de guardia para cachear la lista de periodistas habilitados y encolar ingresos escaneados sin conexión hasta poder sincronizarlos.` },
+    { id: "localstorage", group: "core", col: "client-c", sub: "core", title: "LocalStorage", meta: "sesión operativa", desc: `Cache de la sesión operativa (periodista o guardia) con TTL de 72h, para poder abrir la app y mostrar datos básicos incluso sin conexión.` },
+    { id: "offline_totp", group: "core", col: "client-c", sub: "core", title: "TOTP offline", meta: "lib/offlineQR.ts", desc: `Genera y valida códigos TOTP (otpauth) directamente en el dispositivo, permitiendo emitir y validar QRs de acceso sin depender del backend durante cortes de señal.` },
+    { id: "sw", group: "core", col: "client-c", sub: "core", title: "Service Worker", meta: "vite-plugin-pwa", desc: `Precachea los assets estáticos de la app (PWA) para que el shell cargue incluso sin conexión.` },
+
+    // --- Backend · Edge ---
+    { id: "router", group: "edge", col: "backend-a", sub: "edge", title: "Router (Chi)", meta: "cmd/server/main.go", desc: `Define el router y monta todos los grupos de rutas: /auth, /admin, /guard, /journalists, /matches.` },
+    { id: "mw_security", group: "edge", col: "backend-a", sub: "edge", title: "Security + CORS", meta: "middleware/security.go, cors.go", desc: `Agrega cabeceras de seguridad y restringe el origen permitido a FRONTEND_URL.` },
+    { id: "mw_logger", group: "edge", col: "backend-a", sub: "edge", title: "Logger + Sentry", meta: "middleware/logger.go", desc: `Loguea cada request (RequestLogger) y, si Sentry está configurado, captura excepciones no controladas para observabilidad.` },
+    { id: "mw_ratelimit", group: "edge", col: "backend-a", sub: "edge", title: "Rate limiter", meta: "10 intentos / minuto", desc: `Aplicado únicamente a POST /auth/register y /auth/login, para mitigar ataques de fuerza bruta.` },
+    { id: "mw_auth", group: "edge", col: "backend-a", sub: "edge", title: "RequireAuth", meta: "middleware/auth.go", desc: `Valida el JWT de acceso (Authorization: Bearer ...) y agrega el usuario actual al contexto de la request.` },
+    { id: "mw_role", group: "edge", col: "backend-a", sub: "edge", title: "RequireRole", meta: "middleware/auth.go", desc: `Exige que el usuario autenticado tenga el rol esperado (admin, guard o journalist) antes de llegar al handler.` },
+
+    // --- Backend · Handlers ---
+    { id: "h_auth", group: "handler", col: "backend-b", sub: "handler", title: "AuthHandler", meta: "handlers/auth.go", desc: `Register, Login, Refresh, Logout, ForgotPassword, ResetPassword, Me. Emite el access token (JWT) y el refresh token (cookie httpOnly).` },
+    { id: "h_journalist", group: "handler", col: "backend-b", sub: "handler", title: "JournalistHandler", meta: "handlers/journalists.go", desc: `Perfil del periodista, subida/reemplazo de foto y emisión del token QR, verificando que el partido esté habilitado.` },
+    { id: "h_admin", group: "handler", col: "backend-b", sub: "handler", title: "AdminHandler", meta: "handlers/admin.go, admin_attendance.go", desc: `Gestión de acreditaciones, periodistas, usuarios del sistema, configuración y asistencia / acceso a partidos.` },
+    { id: "h_match", group: "handler", col: "backend-b", sub: "handler", title: "MatchHandler", meta: "handlers/matches.go, match_access.go", desc: `ABM de partidos y resolución de las ventanas de acceso y habilitación por partido.` },
+    { id: "h_guard", group: "handler", col: "backend-b", sub: "handler", title: "GuardHandler", meta: "handlers/guard.go", desc: `Validación de QR en el ingreso (Scan), sincronización offline (Sync) y carga masiva de ingresos pendientes (BulkScan).` },
+
+    // --- Backend · Servicios ---
+    { id: "s_auth", group: "service", col: "backend-c", sub: "service", title: "Auth Service", meta: "internal/auth/service.go", desc: `Firma y valida los JWT de acceso (HS256), y helpers de tokens opacos para refresh y reset de password.` },
+    { id: "s_qr", group: "service", col: "backend-c", sub: "service", title: "QR Service", meta: "internal/auth/qr.go", desc: `Firma y valida los JWT de corta duración usados como QR de acceso; coordina con el secreto TOTP para el modo offline.` },
+    { id: "s_storage", group: "service", col: "backend-c", sub: "service", title: "Storage Uploader", meta: "internal/storage/storage.go", desc: `Procesa (recorte / resize) y sube fotos y plantillas de credencial. Usa Cloudflare R2, con fallback a filesystem local en desarrollo.` },
+    { id: "s_mailer", group: "service", col: "backend-c", sub: "service", title: "Mailer", meta: "internal/mailer/mailer.go", desc: `Cliente de Resend para el email de recuperación de password y las notificaciones de acreditación aprobada / rechazada.` },
+
+    // --- Datos & Externos ---
+    { id: "db", group: "data", col: "data", sub: "data", title: "PostgreSQL", meta: "pgx/v5 + sqlc", desc: `Tablas principales: users, accreditations, matches, ingress_logs, refresh_tokens, password_reset_tokens, match_access_grants, attendance_overrides, journalist_access_status_audit, app_config.` },
+    { id: "r2", group: "external", col: "data", sub: "data", title: "Cloudflare R2", meta: "o filesystem local", desc: `Almacenamiento de fotos de perfil y plantillas de credencial. Si no hay credenciales R2 configuradas, el backend usa ./uploads como fallback en desarrollo.` },
+    { id: "resend", group: "external", col: "data", sub: "data", title: "Resend", meta: "email transaccional", desc: `Proveedor de email transaccional: link de recuperación de password y notificaciones de acreditación aprobada / rechazada.` },
+    { id: "sentry", group: "external", col: "data", sub: "data", title: "Sentry", meta: "observabilidad", desc: `Captura de errores no controlados y trazabilidad de requests, en el middleware HTTP y en el arranque del servidor.` },
+  ];
+
+  const NODE_BY_ID = Object.fromEntries(NODES.map(n => [n.id, n]));
+
+  const COLUMNS = [
+    { id: "client-a", title: "Cliente", sub: "Público · Periodista · Guardia", subgroups: [
+      { key: "public", label: "Público / Auth" },
+      { key: "journalist", label: "Periodista" },
+      { key: "guard", label: "Guardia" },
+    ]},
+    { id: "client-b", title: "Cliente", sub: "Admin", subgroups: [
+      { key: "admin", label: "Admin" },
+    ]},
+    { id: "client-c", title: "Cliente", sub: "Núcleo / infraestructura", subgroups: [
+      { key: "core", label: "Núcleo" },
+    ]},
+    { id: "backend-a", title: "Backend", sub: "Edge · router y middleware", subgroups: [
+      { key: "edge", label: "Edge" },
+    ]},
+    { id: "backend-b", title: "Backend", sub: "Handlers", subgroups: [
+      { key: "handler", label: "Handlers" },
+    ]},
+    { id: "backend-c", title: "Backend", sub: "Servicios de dominio", subgroups: [
+      { key: "service", label: "Servicios" },
+    ]},
+    { id: "data", title: "Datos", sub: "Persistencia y externos", subgroups: [
+      { key: "data", label: "Base de datos y proveedores" },
+    ]},
+  ];
+
+  /* =========================================================
+     DATA: aristas base (estructura general, siempre visibles)
+     ========================================================= */
+  const EDGES = [
+    // páginas -> núcleo cliente
+    ["login","auth_provider"], ["register","auth_provider"],
+    ["j_profile","auth_provider"], ["j_credential","auth_provider"], ["j_qr","auth_provider"],
+    ["a_dashboard","auth_provider"], ["a_requests","auth_provider"], ["a_journalists","auth_provider"],
+    ["a_journalist_detail","auth_provider"], ["a_matches","auth_provider"], ["a_users","auth_provider"],
+    ["a_config","auth_provider"], ["a_info","auth_provider"], ["g_scan","auth_provider"], ["g_list","auth_provider"],
+    ["forgot","api_client"], ["reset","api_client"],
+    ["auth_provider","api_client"], ["auth_provider","localstorage"],
+    ["g_scan","offline_totp"], ["g_scan","indexeddb"], ["g_list","indexeddb"], ["j_qr","offline_totp"],
+    ["landing","sw"],
+
+    // núcleo -> backend edge
+    ["api_client","router"],
+    ["router","mw_security"], ["mw_security","mw_logger"],
+    ["mw_logger","mw_ratelimit"], ["mw_logger","mw_auth"], ["mw_auth","mw_role"],
+
+    // edge -> handlers
+    ["mw_ratelimit","h_auth"], ["mw_logger","h_auth"], ["mw_auth","h_auth"],
+    ["mw_auth","h_journalist"], ["mw_role","h_journalist"],
+    ["mw_role","h_guard"], ["mw_role","h_admin"], ["mw_role","h_match"], ["mw_logger","h_match"],
+
+    // handlers -> servicios / db
+    ["h_auth","s_auth"], ["h_auth","s_mailer"], ["h_auth","db"],
+    ["h_journalist","s_qr"], ["h_journalist","s_storage"], ["h_journalist","db"],
+    ["h_admin","s_mailer"], ["h_admin","s_storage"], ["h_admin","db"],
+    ["h_match","db"],
+    ["h_guard","s_qr"], ["h_guard","db"],
+
+    // servicios -> datos / externos
+    ["s_auth","db"], ["s_mailer","resend"], ["s_storage","r2"], ["mw_logger","sentry"],
+  ];
+
+  /* =========================================================
+     DATA: flujos
+     ========================================================= */
+  const FLOWS = [
+    {
+      id: "f_register", title: "Registro de periodista", summary: "Alta de cuenta y acreditación pendiente.",
+      path: ["register","auth_provider","api_client","router","mw_security","mw_logger","mw_ratelimit","h_auth","db","s_auth","j_credential"],
+      steps: [
+        "El periodista completa el formulario en /registro (nombre, DNI, teléfono, medio, foto y password).",
+        "AuthProvider.register() dispara el flujo de sesión.",
+        "La request pasa por el cliente API único (lib/api.ts).",
+        "Llega al router Chi del backend (main.go).",
+        "Atraviesa SecurityHeaders + CORS.",
+        "Se registra en el logger y en Sentry (RequestLogger).",
+        "Pasa por el rate limiter de /auth (10 intentos por minuto).",
+        "AuthHandler.Register valida los datos y hashea la password con bcrypt.",
+        "Crea el usuario y su acreditación en estado \"pending\" en PostgreSQL, en una misma transacción.",
+        "El Auth Service firma el access token (JWT) y el refresh token se guarda en la base.",
+        "La sesión se aplica en el cliente y el periodista es redirigido a /mi-credencial, a la espera de aprobación.",
+      ],
+    },
+    {
+      id: "f_login", title: "Inicio de sesión", summary: "Login con email y password, según rol.",
+      path: ["login","auth_provider","api_client","router","mw_security","mw_logger","mw_ratelimit","h_auth","db","s_auth"],
+      steps: [
+        "El usuario ingresa email y password en /login.",
+        "AuthProvider.login() inicia la request.",
+        "Pasa por el cliente API único.",
+        "Llega al router del backend.",
+        "SecurityHeaders + CORS.",
+        "RequestLogger / Sentry.",
+        "Rate limiter de /auth/login (10 intentos por minuto).",
+        "AuthHandler.Login busca el usuario y compara la password con bcrypt.",
+        "Verifica que la cuenta esté activa en PostgreSQL.",
+        "El Auth Service emite el access token; el refresh token se guarda como cookie httpOnly. El cliente redirige según el rol: /admin, /guardia o /mi-credencial.",
+      ],
+    },
+    {
+      id: "f_reset", title: "Recuperación de contraseña", summary: "Olvidé mi password → email → nueva password.",
+      path: ["forgot","api_client","router","mw_security","mw_logger","h_auth","db","s_mailer","resend","reset","api_client","router","h_auth","db"],
+      steps: [
+        "El usuario pide \"olvidé mi contraseña\" en /recuperar-password.",
+        "La request va directo por el cliente API (no requiere sesión).",
+        "Router del backend.",
+        "SecurityHeaders + CORS.",
+        "RequestLogger / Sentry.",
+        "AuthHandler.ForgotPassword busca el usuario; la respuesta es siempre genérica por seguridad.",
+        "Genera un token opaco y lo guarda en password_reset_tokens (vence en 1 hora).",
+        "Envía el email a través del Mailer.",
+        "Resend entrega el correo con el link de recuperación.",
+        "El usuario abre /reset-password?token=... desde el email y define la nueva password.",
+        "La nueva password se envía por el cliente API.",
+        "Nueva request al router del backend.",
+        "AuthHandler.ResetPassword valida el token y actualiza la password.",
+        "Marca el token como usado y revoca todas las sesiones (refresh tokens) activas del usuario.",
+      ],
+    },
+    {
+      id: "f_approve", title: "Aprobación de acreditación", summary: "Admin aprueba o rechaza una solicitud.",
+      path: ["a_requests","auth_provider","api_client","router","mw_security","mw_logger","mw_auth","mw_role","h_admin","db","s_mailer","resend"],
+      steps: [
+        "El admin revisa la bandeja de /admin/solicitudes.",
+        "authFetch agrega el access token vigente.",
+        "Cliente API único.",
+        "Router del backend.",
+        "SecurityHeaders + CORS.",
+        "RequestLogger / Sentry.",
+        "RequireAuth valida el JWT de acceso.",
+        "RequireRole exige rol \"admin\".",
+        "AdminHandler.ApproveAccreditation (o RejectAccreditation) actualiza el estado.",
+        "Se actualiza la acreditación en PostgreSQL: aprobada con fecha de vencimiento, o rechazada con motivo.",
+        "El Mailer arma el email de notificación de estado.",
+        "Resend entrega el correo al periodista con el resultado de su solicitud.",
+      ],
+    },
+    {
+      id: "f_photo", title: "Actualizar foto de perfil", summary: "Reemplazo de foto ya autenticado.",
+      path: ["j_profile","auth_provider","api_client","router","mw_security","mw_logger","mw_auth","mw_role","h_journalist","s_storage","r2","db"],
+      steps: [
+        "Desde /perfil, el periodista sube una foto nueva (recortada con PhotoCropper).",
+        "authFetch agrega el access token vigente.",
+        "Cliente API único.",
+        "Router del backend.",
+        "SecurityHeaders + CORS.",
+        "RequestLogger / Sentry.",
+        "RequireAuth valida la sesión.",
+        "RequireRole exige rol \"journalist\".",
+        "JournalistHandler.ReplacePhoto recibe el archivo (multipart, máx. 5MB) y lo procesa (recorte / resize).",
+        "El Storage Uploader sube la imagen procesada.",
+        "Se guarda en Cloudflare R2 (o en el filesystem local en desarrollo).",
+        "La URL final se guarda en el registro del usuario en PostgreSQL.",
+      ],
+    },
+    {
+      id: "f_qr", title: "Generación de QR (periodista)", summary: "El periodista genera su QR de acceso.",
+      path: ["j_qr","auth_provider","api_client","router","mw_security","mw_logger","mw_auth","mw_role","h_journalist","db","s_qr","offline_totp"],
+      steps: [
+        "El periodista abre /mi-qr para ver su acceso al próximo partido.",
+        "authFetch agrega el access token vigente.",
+        "Cliente API único.",
+        "Router del backend.",
+        "SecurityHeaders + CORS.",
+        "RequestLogger / Sentry.",
+        "RequireAuth valida la sesión.",
+        "RequireRole exige rol \"journalist\".",
+        "JournalistHandler.QRToken verifica que la acreditación esté aprobada y que el partido esté habilitado.",
+        "Consulta o crea el secreto TOTP del periodista en PostgreSQL.",
+        "El QR Service firma un JWT de acceso de corta duración para el QR.",
+        "El secreto TOTP viaja también al cliente: offlineQR.ts lo usa para regenerar el código cada 30 segundos sin depender del backend.",
+      ],
+    },
+    {
+      id: "f_scan_online", title: "Escaneo de guardia (online)", summary: "Validación de QR en el ingreso, con señal.",
+      path: ["g_scan","auth_provider","api_client","router","mw_security","mw_logger","mw_auth","mw_role","h_guard","s_qr","db"],
+      steps: [
+        "El guardia escanea el QR del periodista en la puerta.",
+        "authFetch agrega el token de guardia.",
+        "Cliente API único.",
+        "Router del backend.",
+        "SecurityHeaders + CORS.",
+        "RequestLogger / Sentry.",
+        "RequireAuth valida la sesión.",
+        "RequireRole exige rol \"guard\".",
+        "GuardHandler.Scan recibe el token leído del QR.",
+        "El QR Service valida la firma y el vencimiento del JWT del QR.",
+        "Se valida el partido y la acreditación, y se registra el ingreso en ingress_logs (con protección contra reingresos duplicados).",
+      ],
+    },
+    {
+      id: "f_scan_offline", title: "Escaneo de guardia (offline)", summary: "Sin señal: validación local y cola de sincronización.",
+      path: ["g_scan","offline_totp","indexeddb","g_scan","auth_provider","api_client","router","h_guard","db","indexeddb"],
+      steps: [
+        "Sin conexión, el guardia igual puede escanear: el QR del periodista codifica un código TOTP generado en su celular.",
+        "offlineQR.ts valida el código TOTP localmente contra el secreto sincronizado, sin backend.",
+        "El ingreso válido se guarda como pendiente en IndexedDB (pending_scans).",
+        "Al recuperar señal, la app vuelve a /guardia y detecta ingresos pendientes.",
+        "authFetch agrega el access token vigente.",
+        "Cliente API único.",
+        "Router del backend.",
+        "GuardHandler.BulkScan procesa el lote (POST /guard/scan/bulk).",
+        "Cada ingreso válido se guarda en ingress_logs como registro offline.",
+        "Los ingresos ya sincronizados se eliminan de la cola local en IndexedDB.",
+      ],
+    },
+    {
+      id: "f_guard_sync", title: "Sincronización de lista de guardia", summary: "Descarga offline-first de habilitados.",
+      path: ["g_list","auth_provider","api_client","router","mw_security","mw_logger","mw_auth","mw_role","h_guard","db","indexeddb"],
+      steps: [
+        "El guardia abre /guardia/lista antes del partido, con conexión.",
+        "authFetch agrega el token de guardia.",
+        "Cliente API único.",
+        "Router del backend.",
+        "SecurityHeaders + CORS.",
+        "RequestLogger / Sentry.",
+        "RequireAuth valida la sesión.",
+        "RequireRole exige rol \"guard\".",
+        "GuardHandler.Sync busca el partido relevante y arma la lista de periodistas habilitados (activos o con acceso pasivo puntual).",
+        "Consulta PostgreSQL: acreditaciones aprobadas, vigencia y match_access_grants.",
+        "La lista y los ingresos ya usados se guardan en IndexedDB para funcionar sin señal en la puerta.",
+      ],
+    },
+    {
+      id: "f_matches", title: "Gestión de partidos", summary: "ABM de partidos y ventana de acceso QR.",
+      path: ["a_matches","auth_provider","api_client","router","mw_security","mw_logger","mw_auth","mw_role","h_match","db"],
+      steps: [
+        "El admin crea, edita o elimina un partido en /admin/partidos.",
+        "authFetch agrega el access token vigente.",
+        "Cliente API único.",
+        "Router del backend.",
+        "SecurityHeaders + CORS.",
+        "RequestLogger / Sentry.",
+        "RequireAuth valida la sesión.",
+        "RequireRole exige rol \"admin\".",
+        "MatchHandler crea / actualiza / elimina el partido (rival, fecha, local o visitante).",
+        "Se persiste en la tabla matches de PostgreSQL, definiendo la ventana de acceso QR de ese partido.",
+      ],
+    },
+    {
+      id: "f_passive_access", title: "Acceso puntual a un partido", summary: "Habilitar a un periodista pasivo para un partido específico.",
+      path: ["a_journalist_detail","auth_provider","api_client","router","mw_security","mw_logger","mw_auth","mw_role","h_admin","db"],
+      steps: [
+        "El admin abre el detalle de un periodista con acceso \"pasivo\" en /admin/periodistas/:id.",
+        "authFetch agrega el access token vigente.",
+        "Cliente API único.",
+        "Router del backend.",
+        "SecurityHeaders + CORS.",
+        "RequestLogger / Sentry.",
+        "RequireAuth valida la sesión.",
+        "RequireRole exige rol \"admin\".",
+        "AdminHandler.GrantPassiveMatchAccess habilita (o revoca) el acceso a un partido puntual.",
+        "Se guarda en match_access_grants, vinculando periodista + partido + quién lo otorgó.",
+      ],
+    },
+    {
+      id: "f_refresh", title: "Renovación de sesión", summary: "Refresh token automático ante un 401.",
+      path: ["auth_provider","api_client","router","mw_security","mw_logger","h_auth","db","s_auth","db","auth_provider"],
+      steps: [
+        "Cualquier llamada autenticada (authFetch) recibe un 401 porque el access token venció.",
+        "AuthProvider.refresh() dispara la renovación automáticamente, sin intervención del usuario.",
+        "La request va por el cliente API, enviando la cookie httpOnly refresh_token.",
+        "Router del backend.",
+        "SecurityHeaders + CORS.",
+        "RequestLogger / Sentry.",
+        "AuthHandler.Refresh busca el refresh token vigente.",
+        "Se valida y se revoca en PostgreSQL (rotación de un solo uso).",
+        "El Auth Service emite un access token nuevo.",
+        "Se guarda el nuevo refresh token y se reintenta automáticamente la request original.",
+        "AuthProvider aplica la nueva sesión de forma transparente para el usuario.",
+      ],
+    },
+    {
+      id: "f_users", title: "Gestión de usuarios del sistema", summary: "Alta y baja de cuentas de admin / guardia.",
+      path: ["a_users","auth_provider","api_client","router","mw_security","mw_logger","mw_auth","mw_role","h_admin","db"],
+      steps: [
+        "El admin crea o desactiva una cuenta interna en /admin/usuarios.",
+        "authFetch agrega el access token vigente.",
+        "Cliente API único.",
+        "Router del backend.",
+        "SecurityHeaders + CORS.",
+        "RequestLogger / Sentry.",
+        "RequireAuth valida la sesión.",
+        "RequireRole exige rol \"admin\".",
+        "AdminHandler.CreateSystemUser (o DeactivateSystemUser) gestiona la cuenta de admin o guardia.",
+        "Se persiste en la tabla users de PostgreSQL, con is_active como flag de baja lógica.",
+      ],
+    },
+    {
+      id: "f_config", title: "Configuración y credencial", summary: "Ajustes globales y plantilla de credencial.",
+      path: ["a_config","auth_provider","api_client","router","mw_security","mw_logger","mw_auth","mw_role","h_admin","db","s_storage","r2"],
+      steps: [
+        "El admin edita la configuración global en /admin/configuracion (vencimiento por defecto, equipo propio, estilo de credencial).",
+        "authFetch agrega el access token vigente.",
+        "Cliente API único.",
+        "Router del backend.",
+        "SecurityHeaders + CORS.",
+        "RequestLogger / Sentry.",
+        "RequireAuth valida la sesión.",
+        "RequireRole exige rol \"admin\".",
+        "AdminHandler.UpdateConfig (o UploadCredentialTemplate) procesa el cambio.",
+        "Los valores de configuración se guardan en app_config (fila única) en PostgreSQL.",
+        "Si se sube una plantilla nueva, el Storage Uploader procesa la imagen.",
+        "La plantilla se guarda en Cloudflare R2 (o filesystem local en desarrollo).",
+      ],
+    },
+  ];
+
+  /* =========================================================
+     RENDER: columnas y nodos
+     ========================================================= */
+  const columnsEl = document.getElementById("columns");
+
+  COLUMNS.forEach(col => {
+    const colEl = document.createElement("div");
+    colEl.className = "column";
+    colEl.dataset.colId = col.id;
+
+    const head = document.createElement("div");
+    head.className = "column-head";
+    head.innerHTML = `${col.title}<small>${col.sub}</small>`;
+    colEl.appendChild(head);
+
+    col.subgroups.forEach(sg => {
+      const nodesInSub = NODES.filter(n => n.col === col.id && n.sub === sg.key);
+      if (!nodesInSub.length) return;
+
+      const sgEl = document.createElement("div");
+      sgEl.className = "subgroup";
+
+      const sgHead = document.createElement("div");
+      sgHead.className = "subgroup-head";
+      sgHead.textContent = sg.label;
+      sgEl.appendChild(sgHead);
+
+      nodesInSub.forEach(n => {
+        const nodeEl = document.createElement("div");
+        nodeEl.className = "node";
+        nodeEl.dataset.id = n.id;
+        nodeEl.dataset.group = n.group;
+        nodeEl.tabIndex = 0;
+        nodeEl.innerHTML = `
+          <span class="node-badge" data-badge></span>
+          <span class="node-chip">${groupLabel(n.group)}</span>
+          <span class="node-title">${n.title}</span>
+          <span class="node-sub">${n.meta}</span>
+        `;
+        sgEl.appendChild(nodeEl);
+      });
+
+      colEl.appendChild(sgEl);
+    });
+
+    columnsEl.appendChild(colEl);
+  });
+
+  function groupLabel(g) {
+    return {
+      public: "Cliente", journalist: "Cliente", guard: "Cliente", admin: "Cliente",
+      core: "Núcleo", edge: "Middleware", handler: "Handler", service: "Servicio",
+      data: "Datos", external: "Externo",
+    }[g] || g;
+  }
+
+  /* =========================================================
+     RENDER: stats
+     ========================================================= */
+  document.getElementById("stat-nodes").textContent = NODES.length;
+  document.getElementById("stat-edges").textContent = EDGES.length;
+  document.getElementById("stat-flows").textContent = FLOWS.length;
+
+  /* =========================================================
+     RENDER: lista de flujos
+     ========================================================= */
+  const flowListEl = document.getElementById("flow-list");
+  FLOWS.forEach((flow, idx) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "flow-item";
+    btn.dataset.flowId = flow.id;
+    btn.setAttribute("aria-pressed", "false");
+    btn.innerHTML = `
+      <span class="flow-index">${String(idx + 1).padStart(2, "0")}</span>
+      <span class="flow-texts">
+        <span class="flow-name">${flow.title}</span>
+        <span class="flow-summary">${flow.summary}</span>
+      </span>
+    `;
+    btn.addEventListener("click", () => {
+      if (btn.classList.contains("active")) {
+        resetFlow();
+      } else {
+        activateFlow(flow);
+      }
+    });
+    flowListEl.appendChild(btn);
+  });
+
+  /* =========================================================
+     EDGES: dibujo
+     ========================================================= */
+  const graphContent = document.getElementById("graph-content");
+  const svg = document.getElementById("edges");
+  const baselineGroup = document.getElementById("edges-baseline");
+  const flowGroup = document.getElementById("edges-flow");
+  const diagramWrap = document.getElementById("diagram-wrap");
+
+  function nodeEl(id) {
+    return columnsEl.querySelector(`.node[data-id="${id}"]`);
+  }
+
+  function rectRelativeTo(el, refRect) {
+    const r = el.getBoundingClientRect();
+    return {
+      left: r.left - refRect.left, top: r.top - refRect.top,
+      right: r.right - refRect.left, bottom: r.bottom - refRect.top,
+      cx: (r.left + r.right) / 2 - refRect.left, cy: (r.top + r.bottom) / 2 - refRect.top,
+    };
+  }
+
+  function edgePathD(fromEl, toEl, refRect) {
+    const a = rectRelativeTo(fromEl, refRect);
+    const b = rectRelativeTo(toEl, refRect);
+    let sx, sy, ex, ey;
+
+    if (Math.abs(a.cx - b.cx) >= Math.abs(a.cy - b.cy) * 0.6) {
+      // conexión mayormente horizontal: salir por el borde derecho/izquierdo
+      if (b.cx >= a.cx) { sx = a.right; ex = b.left; } else { sx = a.left; ex = b.right; }
+      sy = a.cy; ey = b.cy;
+      const dx = Math.max(Math.abs(ex - sx) * 0.5, 40);
+      return `M ${sx} ${sy} C ${sx + (ex >= sx ? dx : -dx)} ${sy}, ${ex - (ex >= sx ? dx : -dx)} ${ey}, ${ex} ${ey}`;
+    }
+    // conexión mayormente vertical: salir por el borde inferior/superior
+    if (b.cy >= a.cy) { sy = a.bottom; ey = b.top; } else { sy = a.top; ey = b.bottom; }
+    sx = a.cx; ex = b.cx;
+    const dy = Math.max(Math.abs(ey - sy) * 0.5, 30);
+    return `M ${sx} ${sy} C ${sx} ${sy + (ey >= sy ? dy : -dy)}, ${ex} ${ey - (ey >= sy ? dy : -dy)}, ${ex} ${ey}`;
+  }
+
+  function drawBaseline() {
+    baselineGroup.innerHTML = "";
+    const refRect = graphContent.getBoundingClientRect();
+    EDGES.forEach(([fromId, toId]) => {
+      const fromEl = nodeEl(fromId), toEl = nodeEl(toId);
+      if (!fromEl || !toEl) return;
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("class", "edge-baseline");
+      path.setAttribute("d", edgePathD(fromEl, toEl, refRect));
+      baselineGroup.appendChild(path);
+    });
+  }
+
+  function drawFlowEdges(pathIds) {
+    flowGroup.innerHTML = "";
+    const refRect = graphContent.getBoundingClientRect();
+    for (let i = 0; i < pathIds.length - 1; i++) {
+      const fromEl = nodeEl(pathIds[i]), toEl = nodeEl(pathIds[i + 1]);
+      if (!fromEl || !toEl) continue;
+      const d = edgePathD(fromEl, toEl, refRect);
+      const casing = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      casing.setAttribute("class", "edge-flow-casing");
+      casing.setAttribute("d", d);
+      flowGroup.appendChild(casing);
+      const highlight = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      highlight.setAttribute("class", "edge-flow-highlight");
+      highlight.setAttribute("d", d);
+      flowGroup.appendChild(highlight);
+    }
+  }
+
+  /* =========================================================
+     FLUJOS: activar / resetear
+     ========================================================= */
+  let currentFlow = null;
+
+  function activateFlow(flow) {
+    currentFlow = flow;
+    svg.classList.add("flow-active");
+
+    // pasos por nodo (puede repetirse un nodo en varios pasos)
+    const stepsByNode = {};
+    flow.path.forEach((id, i) => {
+      if (!stepsByNode[id]) stepsByNode[id] = [];
+      stepsByNode[id].push(i + 1);
+    });
+
+    columnsEl.querySelectorAll(".node").forEach(el => {
+      const id = el.dataset.id;
+      const badge = el.querySelector("[data-badge]");
+      if (stepsByNode[id]) {
+        el.classList.add("in-path");
+        el.classList.remove("dim");
+        badge.textContent = stepsByNode[id].join("·");
+      } else {
+        el.classList.remove("in-path");
+        el.classList.add("dim");
+        badge.textContent = "";
+      }
+    });
+
+    drawFlowEdges(flow.path);
+
+    document.querySelectorAll(".flow-item").forEach(btn => {
+      const isActive = btn.dataset.flowId === flow.id;
+      btn.classList.toggle("active", isActive);
+      btn.setAttribute("aria-pressed", String(isActive));
+    });
+
+    document.getElementById("flow-detail-title").textContent = flow.title;
+    document.getElementById("flow-detail-summary").textContent = flow.summary;
+    const stepsEl = document.getElementById("flow-detail-steps");
+    stepsEl.innerHTML = "";
+    flow.steps.forEach(s => {
+      const li = document.createElement("li");
+      li.textContent = s;
+      stepsEl.appendChild(li);
+    });
+    document.getElementById("flow-detail").classList.add("visible");
+    document.getElementById("reset-flow").classList.add("visible");
+
+    const firstEl = nodeEl(flow.path[0]);
+    if (firstEl) {
+      firstEl.scrollIntoView({ behavior: "smooth", inline: "center", block: "center" });
+    }
+  }
+
+  function resetFlow() {
+    currentFlow = null;
+    svg.classList.remove("flow-active");
+    flowGroup.innerHTML = "";
+    columnsEl.querySelectorAll(".node").forEach(el => {
+      el.classList.remove("in-path", "dim");
+      const badge = el.querySelector("[data-badge]");
+      if (badge) badge.textContent = "";
+    });
+    document.querySelectorAll(".flow-item").forEach(btn => {
+      btn.classList.remove("active");
+      btn.setAttribute("aria-pressed", "false");
+    });
+    document.getElementById("flow-detail").classList.remove("visible");
+    document.getElementById("reset-flow").classList.remove("visible");
+  }
+
+  document.getElementById("reset-flow").addEventListener("click", resetFlow);
+
+  /* =========================================================
+     TOOLTIP
+     ========================================================= */
+  const tooltip = document.getElementById("tooltip");
+
+  function showTooltip(el) {
+    const n = NODE_BY_ID[el.dataset.id];
+    if (!n) return;
+    tooltip.innerHTML = `
+      <span class="tt-title">${n.title}</span>
+      <span class="tt-sub">${n.meta}</span>
+      ${n.desc}
+    `;
+    tooltip.classList.add("visible");
+    positionTooltip(el);
+  }
+
+  function positionTooltip(el) {
+    const r = el.getBoundingClientRect();
+    const ttRect = tooltip.getBoundingClientRect();
+    let left = r.left + r.width / 2 - ttRect.width / 2;
+    let top = r.bottom + 10;
+    left = Math.max(10, Math.min(left, window.innerWidth - ttRect.width - 10));
+    if (top + ttRect.height > window.innerHeight - 10) {
+      top = r.top - ttRect.height - 10;
+    }
+    tooltip.style.left = left + "px";
+    tooltip.style.top = top + "px";
+  }
+
+  function hideTooltip() {
+    tooltip.classList.remove("visible");
+  }
+
+  columnsEl.addEventListener("mouseover", e => {
+    const node = e.target.closest(".node");
+    if (node) showTooltip(node);
+  });
+  columnsEl.addEventListener("mouseout", e => {
+    const node = e.target.closest(".node");
+    if (node) hideTooltip();
+  });
+  columnsEl.addEventListener("focusin", e => {
+    const node = e.target.closest(".node");
+    if (node) showTooltip(node);
+  });
+  columnsEl.addEventListener("focusout", e => {
+    const node = e.target.closest(".node");
+    if (node) hideTooltip();
+  });
+  diagramWrap.addEventListener("scroll", hideTooltip, { passive: true });
+
+  /* =========================================================
+     ZOOM: zoom in / zoom out con la ruedita del mouse
+     ========================================================= */
+  let zoomScale = 1;
+  diagramWrap.addEventListener("wheel", e => {
+    e.preventDefault();
+    const rect = diagramWrap.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left + diagramWrap.scrollLeft;
+    const mouseY = e.clientY - rect.top + diagramWrap.scrollTop;
+
+    const factor = e.deltaY < 0 ? 1.12 : 0.89;
+    const newZoom = Math.min(2.5, Math.max(0.4, zoomScale * factor));
+    const ratio = newZoom / zoomScale;
+    zoomScale = newZoom;
+
+    graphContent.style.transform = `scale(${zoomScale})`;
+    graphContent.style.transformOrigin = "0 0";
+
+    diagramWrap.scrollLeft = mouseX * ratio - (e.clientX - rect.left);
+    diagramWrap.scrollTop = mouseY * ratio - (e.clientY - rect.top);
+  }, { passive: false });
+
+  /* =========================================================
+     PAN: arrastrar el fondo del diagrama para desplazarse
+     ========================================================= */
+  let isPanning = false;
+  let panMoved = false;
+  let panStartX = 0, panStartY = 0, panScrollLeft = 0, panScrollTop = 0;
+  const PAN_THRESHOLD = 4;
+
+  diagramWrap.addEventListener("pointerdown", e => {
+    if (e.button !== 0) return;
+    isPanning = true;
+    panMoved = false;
+    panStartX = e.clientX;
+    panStartY = e.clientY;
+    panScrollLeft = diagramWrap.scrollLeft;
+    panScrollTop = diagramWrap.scrollTop;
+    diagramWrap.setPointerCapture(e.pointerId);
+  });
+
+  diagramWrap.addEventListener("pointermove", e => {
+    if (!isPanning) return;
+    const dx = e.clientX - panStartX;
+    const dy = e.clientY - panStartY;
+    if (!panMoved && (Math.abs(dx) > PAN_THRESHOLD || Math.abs(dy) > PAN_THRESHOLD)) {
+      panMoved = true;
+      diagramWrap.classList.add("dragging");
+      hideTooltip();
+    }
+    if (panMoved) {
+      diagramWrap.scrollLeft = panScrollLeft - dx;
+      diagramWrap.scrollTop = panScrollTop - dy;
+    }
+  });
+
+  function endPan(e) {
+    if (!isPanning) return;
+    isPanning = false;
+    diagramWrap.classList.remove("dragging");
+    if (e && e.pointerId !== undefined && diagramWrap.hasPointerCapture(e.pointerId)) {
+      diagramWrap.releasePointerCapture(e.pointerId);
+    }
+  }
+
+  diagramWrap.addEventListener("pointerup", endPan);
+  diagramWrap.addEventListener("pointercancel", endPan);
+
+  /* =========================================================
+     REDRAW en resize / carga de fuentes
+     ========================================================= */
+  function redrawAll() {
+    drawBaseline();
+    if (currentFlow) drawFlowEdges(currentFlow.path);
+  }
+
+  requestAnimationFrame(redrawAll);
+  window.addEventListener("resize", debounce(redrawAll, 120));
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(redrawAll);
+  }
+  if (window.ResizeObserver) {
+    new ResizeObserver(debounce(redrawAll, 80)).observe(graphContent);
+  }
+
+  function debounce(fn, ms) {
+    let t;
+    return function () {
+      clearTimeout(t);
+      t = setTimeout(fn, ms);
+    };
+  }
+})();
+</script>
+</body>
+</html>

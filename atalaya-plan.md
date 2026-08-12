@@ -451,19 +451,11 @@ Alcance:
  
 ### Sprint 9 — Diagramas interactivos de arquitectura
  
-**Objetivo:** representar y explicar visualmente los flujos reales de las cuatro aplicaciones.
+**Objetivo:** representar y explicar visualmente los flujos reales de las cuatro aplicaciones, cinco contando a la misma Atalaya.
  
-Alcance:
- 
-- Definir el modelo de nodos, aristas, grupos y flujos.
-- Elegir la librería de visualización mediante un spike técnico corto.
-- Crear configuración versionada para cada aplicación.
-- Mostrar panel de flujos y resaltar rutas completas.
-- Implementar tooltips y detalles por componente.
-- Aplicar la identidad visual y banderas de estado.
-- Garantizar navegación por teclado y comportamiento responsive.
-- Definir si la configuración se sirve desde Go o se administra como contenido versionado.
-**Demo:** seleccionar flujos de cada aplicación y ver sus rutas resaltadas con estado operativo actual.
+Alcance: Preguntarme en el momento.
+
+**Estado:** completado el 2026-08-11. 
  
 ### Sprint 10 — Status público y meta-observabilidad
  

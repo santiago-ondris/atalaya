@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react'
 import { api, type Overview } from './api'
 import { AppLayout, type View } from './components/layout/AppLayout'
 import { ErrorState, LoadingState } from './components/feedback/FeedbackState'
+import { ArchitecturePage } from './features/architecture/ArchitecturePage'
 import { LoginPage } from './features/auth/LoginPage'
 import { EventDetailPage } from './features/events/EventDetailPage'
 import { EventsPage } from './features/events/EventsPage'
@@ -21,6 +22,7 @@ function App() {
   const [activeView, setActiveView] = useState<View>('overview')
   const [overview, setOverview] = useState<Overview | null>(null)
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
+  const [selectedArchApp, setSelectedArchApp] = useState<string | null>(null)
   const [overviewError, setOverviewError] = useState('')
 
   useEffect(() => {
@@ -64,6 +66,12 @@ function App() {
     setSelectedEventId(null)
   }
 
+  function handleOpenArchitecture(appSlug: string) {
+    setSelectedArchApp(appSlug)
+    setActiveView('architecture')
+    setSelectedEventId(null)
+  }
+
   function closeEventDetail() {
     setSelectedEventId(null)
     setActiveView('events')
@@ -82,6 +90,10 @@ function App() {
 
     if (activeView === 'events') {
       return <EventsPage onSelectEvent={setSelectedEventId} />
+    }
+
+    if (activeView === 'architecture') {
+      return <ArchitecturePage initialAppSlug={selectedArchApp} />
     }
 
     if (activeView === 'system') {
@@ -116,7 +128,13 @@ function App() {
       )
     }
 
-    return <OverviewPage overview={overview} onSelectEvent={setSelectedEventId} />
+    return (
+      <OverviewPage
+        onSelectArchitecture={handleOpenArchitecture}
+        onSelectEvent={setSelectedEventId}
+        overview={overview}
+      />
+    )
   }
 }
 

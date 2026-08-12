@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Notizap · Arquitectura del Sistema</title>
+<style>
+  :root{
+    --bg-0:#0e0d12;
+    --bg-1:#141318;
+    --bg-2:#1A1A20;
+    --bg-3:#212026;
+    --panel:rgba(255,255,255,0.04);
+    --panel-border:rgba(255,255,255,0.09);
+    --text-hi:#F5F4F7;
+    --text-mid:#B9B6C3;
+    --text-lo:#726F7D;
+    --lila:#B695BF;
+    --rojo:#D94854;
+    --rosa:#F23D5E;
+    --oliva:#51590E;
+    --verde:#22C55E;
+    --indigo:#6366F1;
+    --gold:#FFD700;
+    --grey:#9CA3AF;
+    --extgrey:#5B6472;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background:
+      radial-gradient(1200px 700px at 12% -10%, rgba(182,149,191,0.14), transparent 60%),
+      radial-gradient(1000px 600px at 100% 0%, rgba(217,72,84,0.10), transparent 55%),
+      var(--bg-0);
+    color:var(--text-hi);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+  }
+  header{
+    padding:18px 24px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    flex-wrap:wrap;
+    border-bottom:1px solid var(--panel-border);
+    background:rgba(20,19,24,0.7);
+    backdrop-filter:blur(10px);
+    position:sticky;
+    top:0;
+    z-index:50;
+  }
+  .brand{display:flex;align-items:center;gap:12px;}
+  .brand-badge{
+    width:38px;height:38px;border-radius:10px;
+    background:linear-gradient(135deg,var(--lila),var(--rojo));
+    display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:15px;color:#1A1A20;
+    flex:none;
+  }
+  .brand h1{font-size:16px;margin:0;font-weight:700;letter-spacing:.2px;}
+  .brand p{margin:2px 0 0;font-size:12px;color:var(--text-mid);}
+  .toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .toolbar button{
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    color:var(--text-hi);
+    padding:7px 12px;
+    border-radius:8px;
+    font-size:12.5px;
+    cursor:pointer;
+    display:flex;align-items:center;gap:6px;
+    transition:background .15s,border-color .15s,transform .1s;
+  }
+  .toolbar button:hover{background:rgba(255,255,255,0.09);border-color:rgba(255,255,255,0.2);}
+  .toolbar button:active{transform:scale(.96);}
+  .toolbar button.primary{
+    background:linear-gradient(135deg, rgba(182,149,191,0.25), rgba(217,72,84,0.2));
+    border-color:rgba(182,149,191,0.4);
+  }
+  main{
+    flex:1;
+    display:flex;
+    min-height:0;
+    gap:0;
+  }
+  #diagram-wrap{
+    flex:1;
+    min-width:0;
+    position:relative;
+    overflow:auto;
+    background:
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px) 0 0/28px 28px,
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px) 0 0/28px 28px,
+      var(--bg-1);
+    cursor:grab;
+  }
+  #diagram-wrap.grabbing{cursor:grabbing;}
+  svg#diagram{display:block;user-select:none;}
+  .col-header rect{fill:var(--panel);stroke:var(--panel-border);stroke-width:1;}
+  .col-header text{fill:var(--text-mid);font-size:11px;font-weight:700;letter-spacing:.6px;}
+  .col-header .subtitle{fill:var(--text-lo);font-size:9.5px;font-weight:500;letter-spacing:.2px;}
+
+  .edge{fill:none;stroke:rgba(255,255,255,0.14);stroke-width:1.4;transition:stroke .25s,opacity .25s,stroke-width .25s;}
+  .edge.dashed{stroke-dasharray:3 4;}
+  .edge.dimmed{opacity:0.06;}
+  .edge.active-edge{
+    stroke-width:2.6;
+    opacity:1;
+    stroke-dasharray:6 5;
+    animation:flowmove 1s linear infinite;
+  }
+  @keyframes flowmove{ to{ stroke-dashoffset:-22; } }
+
+  .node{cursor:pointer;}
+  .node rect.body{
+    stroke:var(--panel-border);
+    stroke-width:1;
+    transition:opacity .25s, filter .2s, stroke .2s, transform .15s;
+  }
+  .node rect.accent{transition:opacity .25s;}
+  .node text{
+    fill:var(--text-hi);
+    font-size:11px;
+    font-weight:600;
+    pointer-events:none;
+  }
+  .node text.sub{
+    fill:var(--text-lo);
+    font-size:8.6px;
+    font-weight:500;
+    pointer-events:none;
+  }
+  .node.dimmed{opacity:0.16;}
+  .node.dimmed rect.body{filter:none;}
+  .node:not(.dimmed):hover rect.body{filter:brightness(1.18);stroke:rgba(255,255,255,0.5);}
+  .node.active-flow rect.body{stroke:#fff;stroke-width:1.6;filter:drop-shadow(0 0 8px rgba(255,255,255,0.25));}
+  .node .badge{opacity:0;transition:opacity .2s;}
+  .node.active-flow .badge{opacity:1;}
+  .node .badge circle{fill:#fff;}
+  .node .badge text{fill:#141318;font-size:10px;font-weight:800;}
+
+  #tooltip{
+    position:fixed;
+    max-width:300px;
+    background:rgba(18,17,22,0.97);
+    border:1px solid rgba(255,255,255,0.14);
+    border-radius:10px;
+    padding:11px 13px;
+    font-size:12px;
+    line-height:1.5;
+    color:var(--text-hi);
+    box-shadow:0 12px 32px rgba(0,0,0,0.5);
+    pointer-events:none;
+    opacity:0;
+    transform:translateY(4px);
+    transition:opacity .12s, transform .12s;
+    z-index:200;
+  }
+  #tooltip.show{opacity:1;transform:translateY(0);}
+  #tooltip .tt-title{font-weight:700;font-size:12.5px;margin-bottom:3px;display:flex;align-items:center;gap:6px;}
+  #tooltip .tt-swatch{width:9px;height:9px;border-radius:3px;flex:none;}
+  #tooltip .tt-sub{color:var(--text-lo);font-size:10.5px;margin-bottom:6px;font-style:italic;}
+  #tooltip .tt-desc{color:var(--text-mid);}
+
+  aside#flows{
+    width:360px;
+    flex:none;
+    border-left:1px solid var(--panel-border);
+    background:rgba(20,19,24,0.55);
+    backdrop-filter:blur(10px);
+    overflow-y:auto;
+    padding:18px 16px 40px;
+  }
+  aside#flows h2{
+    font-size:13px;
+    text-transform:uppercase;
+    letter-spacing:.8px;
+    color:var(--text-mid);
+    margin:4px 0 4px;
+  }
+  aside#flows .hint{font-size:11.5px;color:var(--text-lo);margin:0 0 14px;line-height:1.5;}
+  .flow-card{
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    border-left:3px solid var(--grey);
+    border-radius:10px;
+    padding:10px 12px;
+    margin-bottom:8px;
+    cursor:pointer;
+    transition:background .15s, border-color .15s, transform .1s;
+  }
+  .flow-card:hover{background:rgba(255,255,255,0.08);transform:translateX(2px);}
+  .flow-card.active{background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.3);}
+  .flow-card .fc-top{display:flex;align-items:center;gap:8px;}
+  .flow-card .fc-num{
+    width:20px;height:20px;border-radius:6px;
+    display:flex;align-items:center;justify-content:center;
+    font-size:10.5px;font-weight:800;color:#141318;flex:none;
+  }
+  .flow-card .fc-title{font-size:12.5px;font-weight:700;color:var(--text-hi);}
+  .flow-card .fc-desc{font-size:10.8px;color:var(--text-lo);margin-top:3px;line-height:1.4;}
+
+  #flow-detail{
+    margin-top:16px;
+    padding:14px;
+    border-radius:12px;
+    background:rgba(255,255,255,0.05);
+    border:1px solid var(--panel-border);
+    display:none;
+  }
+  #flow-detail.show{display:block;}
+  #flow-detail h3{margin:0 0 10px;font-size:13px;display:flex;align-items:center;gap:8px;}
+  #flow-detail ol{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:9px;}
+  #flow-detail li{font-size:11.6px;line-height:1.5;color:var(--text-mid);}
+  #flow-detail li::marker{color:var(--text-lo);font-weight:700;}
+
+  #legend{margin-top:22px;}
+  #legend h2{font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--text-mid);margin:4px 0 10px;}
+  .legend-row{display:flex;align-items:center;gap:8px;padding:5px 6px;border-radius:7px;cursor:pointer;font-size:11.5px;color:var(--text-mid);transition:background .15s;}
+  .legend-row:hover{background:rgba(255,255,255,0.06);color:var(--text-hi);}
+  .legend-row .dot{width:10px;height:10px;border-radius:3px;flex:none;}
+
+  footer{
+    padding:10px 24px;
+    font-size:10.5px;
+    color:var(--text-lo);
+    border-top:1px solid var(--panel-border);
+    display:flex;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:6px;
+  }
+
+  @media (max-width:900px){
+    main{flex-direction:column;}
+    aside#flows{width:100%;border-left:none;border-top:1px solid var(--panel-border);max-height:46vh;}
+    #diagram-wrap{height:54vh;}
+  }
+  ::-webkit-scrollbar{width:10px;height:10px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.14);border-radius:6px;}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.24);}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="brand-badge">N</div>
+    <div>
+      <h1>Notizap — Arquitectura del Sistema</h1>
+      <p>React 19 + Vite · .NET 8 / ASP.NET Core · PostgreSQL (EF Core) — diagrama generado a partir del código fuente</p>
+    </div>
+  </div>
+  <div class="toolbar">
+    <button id="zoom-out">− Zoom</button>
+    <button id="zoom-reset">Ajustar</button>
+    <button id="zoom-in">+ Zoom</button>
+    <button id="reset-highlight" class="primary">✕ Limpiar selección</button>
+  </div>
+</header>
+
+<main>
+  <div id="diagram-wrap">
+    <svg id="diagram" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div>
+
+  <aside id="flows">
+    <h2>Flujos de negocio</h2>
+    <p class="hint">Elegí un flujo para resaltar su recorrido completo en el diagrama: frontend → API → controller → service → base de datos (e integraciones externas cuando aplica).</p>
+    <div id="flow-list"></div>
+
+    <div id="flow-detail">
+      <h3 id="flow-detail-title"></h3>
+      <ol id="flow-detail-steps"></ol>
+    </div>
+
+    <div id="legend">
+      <h2>Módulos</h2>
+      <div id="legend-list"></div>
+    </div>
+  </aside>
+</main>
+
+<footer>
+  <span>Generado por análisis estático del repositorio (sin datos en vivo). Pasá el mouse sobre cualquier nodo para ver su detalle.</span>
+  <span>Notizap · Panel interno de gestión</span>
+</footer>
+
+<div id="tooltip"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------------------------------------------------------------------
+   * 1. DATOS: módulos, nodos, aristas y flujos de negocio
+   * ------------------------------------------------------------------- */
+
+  var MODULES = {
+    auth:      { color:"#FFD700", text:"#1A1A20", name:"Autenticación y Usuarios" },
+    cambios:   { color:"#51590E", text:"#F5F4F7", name:"Cambios y Devoluciones" },
+    vendedoras:{ color:"#B695BF", text:"#1A1A20", name:"Vendedoras (Ventas y Comisiones)" },
+    reposicion:{ color:"#F23D5E", text:"#F5F4F7", name:"Reposición e Igualación de Stock" },
+    evolucion: { color:"#D94854", text:"#F5F4F7", name:"Evolución de Stock" },
+    meta:      { color:"#6366F1", text:"#F5F4F7", name:"Catálogo Meta (Facebook / Instagram)" },
+    conversor: { color:"#22C55E", text:"#0B1F14", name:"Conversor de Imágenes" },
+    core:      { color:"#9CA3AF", text:"#1A1A20", name:"Infraestructura / Núcleo" },
+    external:  { color:"#5B6472", text:"#F5F4F7", name:"Integraciones Externas" }
+  };
+
+  var COLS = [
+    { key:"fe",  x:40,   w:210, title:"FRONTEND", subtitle:"React 19 · Vite · TS" },
+    { key:"api", x:310,  w:150, title:"API CLIENT", subtitle:"Axios + JWT" },
+    { key:"ctl", x:520,  w:220, title:"CONTROLLERS", subtitle:"ASP.NET Core Web API" },
+    { key:"svc", x:800,  w:230, title:"SERVICES", subtitle:"Lógica de negocio" },
+    { key:"db",  x:1090, w:230, title:"POSTGRESQL", subtitle:"Tablas (EF Core)" },
+    { key:"ext", x:1380, w:210, title:"EXTERNO", subtitle:"Integraciones de terceros" }
+  ];
+
+  var NODES = [
+    // FRONTEND
+    { id:"fe_login",           col:"fe", mod:"auth",       label:"Login / Autenticación",  sub:"LoginForm.tsx · AuthContext.tsx", desc:"Modal de login y contexto global de autenticación. Gestiona token JWT, rol y datos de usuario en localStorage. Dispara login/logout/register hacia authService." },
+    { id:"fe_usuarios",        col:"fe", mod:"auth",       label:"Usuarios",               sub:"UsersPage.tsx", desc:"Listado y administración de usuarios: cambio de rol y baja de cuentas. Acceso restringido a roles admin/superadmin." },
+    { id:"fe_cambios",         col:"fe", mod:"cambios",    label:"Cambios",                sub:"CambiosPage.tsx", desc:"Alta, edición y seguimiento de cambios de producto (modelo original vs. modelo de cambio, motivo, estado de envío/etiqueta)." },
+    { id:"fe_devoluciones",    col:"fe", mod:"cambios",    label:"Devoluciones",           sub:"DevolucionesPage.tsx", desc:"Gestión de devoluciones estándar de producto, independientes del canal Mercado Libre." },
+    { id:"fe_devolucionesml",  col:"fe", mod:"cambios",    label:"Devoluciones Mercado Libre", sub:"DevolucionesMercadoLibrePage.tsx", desc:"Gestión de devoluciones del canal Mercado Libre: flujo propio de nota de crédito y traslado, y estadísticas por mes." },
+    { id:"fe_ventasvendedoras",col:"fe", mod:"vendedoras", label:"Ventas Vendedoras",      sub:"VentasVendedorasPage.tsx", desc:"Carga de archivos Excel de ventas por vendedora/sucursal y tableros de estadísticas (por día, turno, sucursal, top vendedoras)." },
+    { id:"fe_locales",         col:"fe", mod:"vendedoras", label:"Rendimiento de Locales", sub:"LocalesStatsPage.tsx", desc:"Resumen de rendimiento por sucursal/local en base a las ventas cargadas." },
+    { id:"fe_comisiones",      col:"fe", mod:"vendedoras", label:"Comisiones Vendedoras",  sub:"ComisionesVendedorasPage.tsx", desc:"Calculadora de comisiones por día/sucursal/turno, cálculo batch, calendario, ajustes manuales y exportación de liquidación." },
+    { id:"fe_reposicion",      col:"fe", mod:"reposicion", label:"Reposición Adultos",     sub:"ReposicionPage.tsx", desc:"Sube un Excel de stock y curva de talles; el backend analiza necesidades de reposición por sucursal/talle al vuelo (sin persistir)." },
+    { id:"fe_reposicionninos", col:"fe", mod:"reposicion", label:"Reposición Niños",       sub:"ReposicionNinosPage.tsx", desc:"Variante del análisis de reposición con reglas y curvas de talles propias para calzado infantil." },
+    { id:"fe_igualacion",      col:"fe", mod:"reposicion", label:"Igualación de Stock",    sub:"IgualacionStockPage.tsx", desc:"Genera un Excel de traslados sugeridos para igualar stock entre sucursales." },
+    { id:"fe_evolucionstock",  col:"fe", mod:"evolucion",  label:"Evolución de Stock",     sub:"CargaArchivos · Ranking · Transferencias · Detalle · Gestor", desc:"Carga de compras, ventas y remitos internos; análisis de rotación, ranking, matriz de transferencias y gestor de productos ocultos/excluidos." },
+    { id:"fe_metacatalog",     col:"fe", mod:"meta",       label:"Catálogo Meta",          sub:"MetaCatalogPage.tsx", desc:"Administra campañas de sincronización del catálogo de productos hacia Meta Ads (Facebook/Instagram), con plantillas de imagen y ejecución manual o programada." },
+    { id:"fe_conversor",       col:"fe", mod:"conversor",  label:"Conversor de Imágenes",  sub:"ImageConverterPage.tsx", desc:"Utilidad 100% client-side para optimizar imágenes a formato WebP. No se comunica con el backend." },
+
+    // API CLIENT
+    { id:"api_client", col:"api", mod:"core", label:"Axios API Client", sub:"src/api/api.tsx", desc:"Instancia central de Axios. El interceptor de request agrega 'Authorization: Bearer {token}' a toda llamada (excepto /login). El interceptor de response maneja errores 5xx, deserializa ProblemDetails (traceId) y reporta a Application Insights." },
+
+    // CONTROLLERS
+    { id:"ctl_auth",           col:"ctl", mod:"auth",       label:"AuthController",  sub:"api/v1/auth", desc:"POST /login, POST /register (solo superadmin), POST /forgot-password, GET /health." },
+    { id:"ctl_users",          col:"ctl", mod:"auth",       label:"UsersController", sub:"api/v1/users", desc:"GET /, PUT /{id}/role, DELETE /{id}. Administración de usuarios y roles." },
+    { id:"ctl_cambio",         col:"ctl", mod:"cambios",    label:"CambioController", sub:"api/v1/cambio", desc:"CRUD de cambios: POST /, GET /, GET /paged, GET /{id}, PUT /{id}, PUT /{id}/estados, PUT /{id}/etiqueta, DELETE /{id}. Crear requiere rol admin/superadmin." },
+    { id:"ctl_devolucion",     col:"ctl", mod:"cambios",    label:"DevolucionController", sub:"api/v1/devolucion", desc:"CRUD de devoluciones estándar: POST /, GET /, GET /{id}, PUT /{id}, DELETE /{id}." },
+    { id:"ctl_devolucionml",   col:"ctl", mod:"cambios",    label:"DevolucionesMercadoLibreController", sub:"api/v1/cambios/mercadolibre/devoluciones", desc:"CRUD + PATCH /{id}/nota-credito, PATCH /{id}/traslado, GET /estadisticas, POST /estadisticas/filtrar, GET /meses-disponibles." },
+    { id:"ctl_ventasvendedoras", col:"ctl", mod:"vendedoras", label:"VentasVendedorasController", sub:"api/v1/ventas-vendedoras", desc:"POST /upload (Excel, máx. 10MB), POST /validate, y más de 15 endpoints de estadísticas/consulta (por día, turno, sucursal, top vendedoras, gestión)." },
+    { id:"ctl_comisiones",     col:"ctl", mod:"vendedoras", label:"ComisionesVendedorasController", sub:"api/v1/vendedoras/comisiones", desc:"POST /calcular, PUT /recalcular, POST /calcular-batch, POST /ajuste-manual, GET /calendario, GET /estadisticas, POST /exportar-liquidacion, entre otros." },
+    { id:"ctl_reposicion",     col:"ctl", mod:"reposicion", label:"ReposicionController", sub:"api/v1/reposicion", desc:"POST /analizar (multipart, límite 900KB), POST /validar-archivo, POST /preview, GET /configuracion-defecto, GET /curva-talles-defecto." },
+    { id:"ctl_reposicionninos",col:"ctl", mod:"reposicion", label:"ReposicionNinosController", sub:"api/v1/reposicion-ninos", desc:"Espejo de ReposicionController con reglas propias para calzado infantil: POST /analizar, /preview, /validar-archivo, GET /configuracion-defecto, /info-modulo." },
+    { id:"ctl_igualacion",     col:"ctl", mod:"reposicion", label:"IgualacionStockController", sub:"api/v1/igualacion-stock", desc:"POST /validar-archivo, POST /preview, POST /generar-excel, GET /configuracion-defecto." },
+    { id:"ctl_evolucioncarga", col:"ctl", mod:"evolucion",  label:"EvolucionStockCargaController", sub:"api/v1/evolucion-stock", desc:"POST /compras, /ventas, /compras/sin-movimientos, /remitos; GET /calendario, /productos-excluidos, /remitos/cargas, /remitos/depositos; DELETE /cargas/{id}." },
+    { id:"ctl_evolucionanalisis", col:"ctl", mod:"evolucion", label:"EvolucionStockAnalisisController", sub:"api/v1/evolucion-stock", desc:"GET /productos/buscar, /ranking-rotacion, /rotacion/marcas, /rotacion/proveedores, /transferencias/matriz, /sucursales/{sucursal}/stock-aproximado, más CRUD de /productos (ocultar)." },
+    { id:"ctl_metacampaign",   col:"ctl", mod:"meta",       label:"MetaCampaignController", sub:"api/v1/metacampaign", desc:"CRUD de campañas, POST /upload-template, POST /{id}/ejecutar, GET /{id}/ejecuciones, GET /ejecuciones/{executionId}." },
+    { id:"ctl_health",         col:"ctl", mod:"core",       label:"HealthController", sub:"health", desc:"GET /, /basic, /database, /external-apis. Chequeos de salud del servicio y sus dependencias." },
+
+    // SERVICES
+    { id:"svc_auth",             col:"svc", mod:"auth",       label:"AuthService", sub:"Infrastructure/Services/Login", desc:"Autentica contra la tabla Users (BCrypt.Verify), genera el JWT (HMAC-SHA256, expira en 6 meses) con claims sub/email/role/username. Gestiona registro (BCrypt.HashPassword) y generación de PasswordResetToken (GUID, expira en 1h)." },
+    { id:"svc_email",            col:"svc", mod:"auth",       label:"EmailService", sub:"EmailService.cs", desc:"Envía emails de recuperación de contraseña vía SMTP Gmail (MailKit). Nota: credenciales hardcodeadas en el código fuente (riesgo de seguridad detectado)." },
+    { id:"svc_cambio",           col:"svc", mod:"cambios",    label:"CambioService", sub:"Infrastructure/Services", desc:"Lógica de negocio de creación/edición/estado de Cambios; persiste en la tabla Cambios vía NotizapDbContext." },
+    { id:"svc_devolucion",       col:"svc", mod:"cambios",    label:"DevolucionService", sub:"Infrastructure/Services", desc:"CRUD de devoluciones estándar sobre la tabla Devoluciones." },
+    { id:"svc_devolucionml",     col:"svc", mod:"cambios",    label:"DevolucionMercadoLibreService", sub:"Infrastructure/Services", desc:"Gestiona el ciclo de vida de una devolución ML, incluyendo marcar nota de crédito y traslado, y agregación de estadísticas." },
+    { id:"svc_ventavendedora",   col:"svc", mod:"vendedoras", label:"VentaVendedoraService", sub:"+ ExcelVentasParser", desc:"Parsea el Excel subido, resuelve/crea SucursalVenta y VendedorVenta, calcula el Turno (DeterminarTurno) y detecta productos especiales; inserta en bloque en VentasVendedoras." },
+    { id:"svc_comisionvendedora",col:"svc", mod:"vendedoras", label:"VendedoraComisionService", sub:"Infrastructure/Services", desc:"Lee VentasVendedoras filtradas por fecha/sucursal/turno, aplica reglas de comisión y escribe/actualiza ComisionesVendedoras. Soporta cálculo batch y ajustes manuales auditables." },
+    { id:"svc_reposicion",       col:"svc", mod:"reposicion", label:"ReposicionService", sub:"+ ExcelParser, Analysis, Generator", desc:"Orquesta el análisis on-the-fly: parsea Excel, calcula necesidades de reposición por sucursal/talle y genera el Excel de salida. No persiste en base de datos." },
+    { id:"svc_reposicionninos",  col:"svc", mod:"reposicion", label:"ReposicionNinosService", sub:"+ Analysis, Helper", desc:"Misma lógica que ReposicionService adaptada a curvas de talles y reglas de calzado infantil. Tampoco persiste en base de datos." },
+    { id:"svc_igualacion",       col:"svc", mod:"reposicion", label:"IgualacionStockService", sub:"Infrastructure/Services", desc:"Calcula traslados sugeridos para igualar stock entre sucursales y genera el Excel resultante. Sin persistencia." },
+    { id:"svc_evolucioncarga",   col:"svc", mod:"evolucion",  label:"EvolucionStockCargaService", sub:"+ ExcelComprasParser, ExcelVentasParser, Normalizador", desc:"Parsea compras/ventas, normaliza nombres/colores, aplica mapeos y crea un registro CargaArchivo con N MovimientoStock asociados." },
+    { id:"svc_remitos",          col:"svc", mod:"evolucion",  label:"RemitosCargaService", sub:"+ ExcelRemitosParser, Reconciliador", desc:"Procesa remitos de traslado interno entre depósitos/sucursales y persiste en RemitosInternos." },
+    { id:"svc_evolucionanalisis",col:"svc", mod:"evolucion",  label:"EvolucionStockAnalisisService", sub:"Infrastructure/Services", desc:"Agrega MovimientoStock para ranking de rotación, matriz de transferencias y stock aproximado por sucursal (solo lectura)." },
+    { id:"svc_metaprocessor",    col:"svc", mod:"meta",       label:"MetaCatalogProcessorService", sub:"Infrastructure/Services", desc:"Crea/edita campañas (MetaCampaigns) y, al ejecutar, crea una MetaCampaignExecution y encola el trabajo (Channel<int> en memoria) para el background service." },
+    { id:"svc_metabackground",   col:"svc", mod:"meta",       label:"MetaCatalogBackgroundService", sub:"Hosted Service", desc:"Consume la cola en memoria: trae productos desde Meta Graph API, procesa imágenes y las sube a Cloudinary, actualizando MetaProductState por producto (limpia imágenes huérfanas)." },
+    { id:"svc_metascheduler",    col:"svc", mod:"meta",       label:"MetaCampaignSchedulerService", sub:"Hosted Service", desc:"Dispara ejecuciones automáticas de campañas activas según FrequencyHours/NextRunAt, sin intervención del usuario." },
+
+    // DATABASE
+    { id:"db_users",             col:"db", mod:"auth",       label:"Users", sub:"Id · Username · Email · PasswordHash · Role", desc:"Tabla de usuarios y autenticación. Entidad standalone; el userId se referencia como claim JWT, no como FK relacional en la mayoría de los módulos." },
+    { id:"db_cambios",           col:"db", mod:"cambios",    label:"Cambios", sub:"", desc:"Registro plano de cambios de producto (pedido, modelo original/cambio, motivo, estado)." },
+    { id:"db_devoluciones",      col:"db", mod:"cambios",    label:"Devoluciones", sub:"", desc:"Devoluciones estándar de producto." },
+    { id:"db_devolucionesml",    col:"db", mod:"cambios",    label:"DevolucionesMercadoLibre", sub:"", desc:"Devoluciones del canal Mercado Libre, con estado de nota de crédito y traslado." },
+    { id:"db_ventasvendedoras",  col:"db", mod:"vendedoras", label:"VentasVendedoras", sub:"", desc:"Detalle de ventas por vendedora (producto, fecha, cantidad, total, turno). Relacionada con SucursalesVentas y VendedoresVentas." },
+    { id:"db_sucursales",        col:"db", mod:"vendedoras", label:"SucursalesVentas", sub:"", desc:"Catálogo de sucursales de venta. 1 sucursal → N VentasVendedoras." },
+    { id:"db_vendedores",        col:"db", mod:"vendedoras", label:"VendedoresVentas", sub:"", desc:"Catálogo de vendedoras/vendedores. 1 vendedor → N VentasVendedoras." },
+    { id:"db_comisiones",        col:"db", mod:"vendedoras", label:"ComisionesVendedoras", sub:"", desc:"Comisiones calculadas por vendedora/día/sucursal." },
+    { id:"db_ajustes",           col:"db", mod:"vendedoras", label:"AjustesComisionesManuales", sub:"", desc:"Ajustes manuales sobre comisiones calculadas, auditables (guardan el userId de quien los hizo)." },
+    { id:"db_cargaarchivo",      col:"db", mod:"evolucion",  label:"CargaArchivo", sub:"", desc:"Cada carga de Excel (compra/venta/remito). 1 carga → N MovimientoStock." },
+    { id:"db_movimientostock",   col:"db", mod:"evolucion",  label:"MovimientoStock", sub:"", desc:"Movimiento individual de stock (producto, color, talle, cantidad, punto de venta, sucursal, canal, marca, proveedor, precio)." },
+    { id:"db_remitosinternos",   col:"db", mod:"evolucion",  label:"RemitosInternos", sub:"", desc:"Remitos de traslado interno entre depósitos/sucursales." },
+    { id:"db_mapeos",            col:"db", mod:"evolucion",  label:"ColorMapeo / DepositoMapeo", sub:"", desc:"Tablas de normalización: código de color → nombre, depósito → alias." },
+    { id:"db_productosexcl",     col:"db", mod:"evolucion",  label:"ProductosExcluidos / Ocultos", sub:"", desc:"Listas de exclusión/ocultamiento de productos usadas en los análisis y en el gestor de productos." },
+    { id:"db_metacampaigns",     col:"db", mod:"meta",       label:"MetaCampaigns", sub:"", desc:"Campañas de sincronización de catálogo hacia Meta Ads. 1 campaña → N ejecuciones y N estados de producto." },
+    { id:"db_metaexecutions",    col:"db", mod:"meta",       label:"MetaCampaignExecutions", sub:"", desc:"Historial de ejecuciones (async) de cada campaña." },
+    { id:"db_metaproductstates", col:"db", mod:"meta",       label:"MetaProductStates", sub:"", desc:"Estado por producto dentro de una campaña (incluye CloudinaryPublicId, RetailerId/ItemId). Índice único compuesto (CampaignId, ProductId)." },
+
+    // EXTERNAL
+    { id:"ext_metagraph",   col:"ext", mod:"meta",  label:"Meta Graph API", sub:"graph.facebook.com/v21.0", desc:"Trae el catálogo origen de productos (image_url, price, availability, etc.) para armar las campañas de catálogo Meta Ads." },
+    { id:"ext_cloudinary",  col:"ext", mod:"meta",  label:"Cloudinary", sub:"CloudinaryDotNet", desc:"Hosting/CDN de las imágenes procesadas del catálogo y de las plantillas subidas (upload-template)." },
+    { id:"ext_smtp",        col:"ext", mod:"auth",  label:"SMTP Gmail", sub:"smtp.gmail.com:587", desc:"Envío del email de recuperación de contraseña. Credenciales de la cuenta montellacalzados@gmail.com hardcodeadas en el código." },
+    { id:"ext_appinsights", col:"ext", mod:"core",  label:"Application Insights", sub:"Azure APM", desc:"Telemetría full-stack: logs (Serilog sink), excepciones y requests en el backend; eventos y errores en el frontend (@microsoft/applicationinsights-web), correlacionados por traceId." },
+    { id:"ext_azureswa",    col:"ext", mod:"core",  label:"Azure Static Web Apps", sub:"staticwebapp.config.json", desc:"Hosting del frontend. CORS del backend habilitado explícitamente para su dominio *.azurestaticapps.net y para notizap.app / www.notizap.app." }
+  ];
+
+  var EDGES = [
+    ["fe_login","api_client"],["fe_usuarios","api_client"],["fe_cambios","api_client"],
+    ["fe_devoluciones","api_client"],["fe_devolucionesml","api_client"],["fe_ventasvendedoras","api_client"],
+    ["fe_locales","api_client"],["fe_comisiones","api_client"],["fe_reposicion","api_client"],
+    ["fe_reposicionninos","api_client"],["fe_igualacion","api_client"],["fe_evolucionstock","api_client"],
+    ["fe_metacatalog","api_client"],
+
+    ["api_client","ctl_auth"],["api_client","ctl_users"],["api_client","ctl_cambio"],
+    ["api_client","ctl_devolucion"],["api_client","ctl_devolucionml"],["api_client","ctl_ventasvendedoras"],
+    ["api_client","ctl_comisiones"],["api_client","ctl_reposicion"],["api_client","ctl_reposicionninos"],
+    ["api_client","ctl_igualacion"],["api_client","ctl_evolucioncarga"],["api_client","ctl_evolucionanalisis"],
+    ["api_client","ctl_metacampaign"],["api_client","ctl_health"],
+    ["api_client","ext_appinsights",{dashed:true}],
+
+    ["ctl_auth","svc_auth"],["ctl_users","svc_auth"],["ctl_cambio","svc_cambio"],
+    ["ctl_devolucion","svc_devolucion"],["ctl_devolucionml","svc_devolucionml"],
+    ["ctl_ventasvendedoras","svc_ventavendedora"],["ctl_comisiones","svc_comisionvendedora"],
+    ["ctl_reposicion","svc_reposicion"],["ctl_reposicionninos","svc_reposicionninos"],
+    ["ctl_igualacion","svc_igualacion"],["ctl_evolucioncarga","svc_evolucioncarga"],
+    ["ctl_evolucioncarga","svc_remitos"],["ctl_evolucionanalisis","svc_evolucionanalisis"],
+    ["ctl_metacampaign","svc_metaprocessor"],
+
+    ["svc_auth","db_users"],["svc_auth","svc_email",{loop:true,bulge:50}],["svc_email","ext_smtp"],
+    ["svc_cambio","db_cambios"],["svc_devolucion","db_devoluciones"],["svc_devolucionml","db_devolucionesml"],
+    ["svc_ventavendedora","db_ventasvendedoras"],["svc_ventavendedora","db_sucursales"],["svc_ventavendedora","db_vendedores"],
+    ["svc_comisionvendedora","db_ventasvendedoras"],["svc_comisionvendedora","db_comisiones"],["svc_comisionvendedora","db_ajustes"],
+    ["svc_evolucioncarga","db_cargaarchivo"],["svc_evolucioncarga","db_movimientostock"],
+    ["svc_evolucioncarga","db_mapeos"],["svc_evolucioncarga","db_productosexcl"],
+    ["svc_remitos","db_remitosinternos"],
+    ["svc_evolucionanalisis","db_movimientostock"],
+    ["svc_metaprocessor","db_metacampaigns"],["svc_metaprocessor","svc_metabackground",{loop:true,bulge:50}],
+    ["svc_metascheduler","svc_metaprocessor",{loop:true,bulge:80}],
+    ["svc_metabackground","ext_metagraph"],["svc_metabackground","ext_cloudinary"],
+    ["svc_metabackground","db_metaexecutions"],["svc_metabackground","db_metaproductstates"]
+  ];
+
+  var FLOWS = [
+    { id:"f1", mod:"auth", title:"Login", desc:"Autenticación con JWT",
+      nodes:["fe_login","api_client","ctl_auth","svc_auth","db_users"],
+      edges:[["fe_login","api_client"],["api_client","ctl_auth"],["ctl_auth","svc_auth"],["svc_auth","db_users"]],
+      steps:[
+        "El usuario completa LoginForm.tsx; AuthContext.tsx invoca authService.login().",
+        "api.tsx (Axios) hace POST /auth/login.",
+        "AuthController.Login recibe el request y llama a IAuthService.AuthenticateAsync.",
+        "AuthService busca el usuario en Users, verifica el hash con BCrypt.Verify y genera el JWT (expira en 6 meses).",
+        "El token se guarda en localStorage y actualiza el AuthContext global."
+      ]},
+    { id:"f2", mod:"auth", title:"Recuperación de contraseña", desc:"Reset vía email (SMTP Gmail)",
+      nodes:["fe_login","api_client","ctl_auth","svc_auth","db_users","svc_email","ext_smtp"],
+      edges:[["fe_login","api_client"],["api_client","ctl_auth"],["ctl_auth","svc_auth"],["svc_auth","db_users"],["svc_auth","svc_email"],["svc_email","ext_smtp"]],
+      steps:[
+        "El usuario envía su email en el formulario \"Olvidé mi contraseña\".",
+        "POST /auth/forgot-password vía Axios.",
+        "AuthController.ForgotPassword busca al User por email.",
+        "AuthService genera un PasswordResetToken (GUID) con expiración de 1 hora y lo guarda en Users.",
+        "EmailService envía el link de reseteo vía SMTP Gmail (credenciales hardcodeadas en el código).",
+        "Se responde siempre un mensaje genérico, exista o no la cuenta, por seguridad."
+      ]},
+    { id:"f3", mod:"cambios", title:"Alta de un Cambio", desc:"Registro de cambio de producto",
+      nodes:["fe_cambios","api_client","ctl_cambio","svc_cambio","db_cambios"],
+      edges:[["fe_cambios","api_client"],["api_client","ctl_cambio"],["ctl_cambio","svc_cambio"],["svc_cambio","db_cambios"]],
+      steps:[
+        "CambiosPage recolecta los datos del nuevo cambio en un modal.",
+        "cambiosService llama POST /api/v1/cambio.",
+        "CambioController.Crear (rol admin/superadmin) delega en ICambioService.",
+        "CambioService inserta el registro en la tabla Cambios.",
+        "El frontend refresca el listado (GET /paged)."
+      ]},
+    { id:"f4", mod:"vendedoras", title:"Carga de ventas (Excel)", desc:"Ventas por vendedora/sucursal",
+      nodes:["fe_ventasvendedoras","api_client","ctl_ventasvendedoras","svc_ventavendedora","db_ventasvendedoras","db_sucursales","db_vendedores"],
+      edges:[["fe_ventasvendedoras","api_client"],["api_client","ctl_ventasvendedoras"],["ctl_ventasvendedoras","svc_ventavendedora"],["svc_ventavendedora","db_ventasvendedoras"],["svc_ventavendedora","db_sucursales"],["svc_ventavendedora","db_vendedores"]],
+      steps:[
+        "El usuario arrastra un Excel en el uploader de VentasVendedorasPage.",
+        "Se envía como multipart a POST /ventas-vendedoras/upload.",
+        "VentasVendedorasController valida extensión .xlsx y tamaño (máx. 10MB).",
+        "VentaVendedoraService parsea el archivo (ExcelVentasParser), resuelve/crea Sucursales y Vendedores, calcula el turno y detecta productos especiales.",
+        "Inserta en bloque N filas en VentasVendedoras.",
+        "Devuelve estadísticas de la carga al frontend."
+      ]},
+    { id:"f5", mod:"vendedoras", title:"Cálculo de comisiones", desc:"Por día / sucursal / turno",
+      nodes:["fe_comisiones","api_client","ctl_comisiones","svc_comisionvendedora","db_ventasvendedoras","db_comisiones","db_ajustes"],
+      edges:[["fe_comisiones","api_client"],["api_client","ctl_comisiones"],["ctl_comisiones","svc_comisionvendedora"],["svc_comisionvendedora","db_ventasvendedoras"],["svc_comisionvendedora","db_comisiones"],["svc_comisionvendedora","db_ajustes"]],
+      steps:[
+        "ComisionesCalculadora.tsx dispara el cálculo para un día/sucursal/turno.",
+        "POST /vendedoras/comisiones/calcular.",
+        "ComisionesVendedorasController obtiene el userId del JWT y normaliza la fecha a UTC.",
+        "VendedoraComisionService lee VentasVendedoras, aplica las reglas de comisión y escribe en ComisionesVendedoras.",
+        "Existe variante batch (calcular-batch) y ajustes manuales posteriores que se guardan en AjustesComisionesManuales."
+      ]},
+    { id:"f6", mod:"reposicion", title:"Análisis de reposición", desc:"Adultos y niños — sin persistencia",
+      nodes:["fe_reposicion","api_client","ctl_reposicion","svc_reposicion"],
+      edges:[["fe_reposicion","api_client"],["api_client","ctl_reposicion"],["ctl_reposicion","svc_reposicion"]],
+      steps:[
+        "El usuario sube el Excel de stock y define la configuración de curvas de talles.",
+        "POST /reposicion/analizar (multipart, límite 900KB).",
+        "ReposicionController delega en ReposicionService.",
+        "El servicio parsea el Excel, calcula las necesidades de reposición por sucursal/talle y arma el Excel de salida.",
+        "No hay persistencia en base de datos: es un análisis al vuelo. El resultado se descarga como Excel.",
+        "Nota: Reposición Niños e Igualación de Stock siguen el mismo circuito con sus propios endpoints y reglas."
+      ]},
+    { id:"f7", mod:"evolucion", title:"Evolución de Stock", desc:"Carga de compras/ventas/remitos + análisis",
+      nodes:["fe_evolucionstock","api_client","ctl_evolucioncarga","svc_evolucioncarga","db_cargaarchivo","db_movimientostock","db_mapeos","svc_remitos","db_remitosinternos","ctl_evolucionanalisis","svc_evolucionanalisis"],
+      edges:[["fe_evolucionstock","api_client"],["api_client","ctl_evolucioncarga"],["ctl_evolucioncarga","svc_evolucioncarga"],["svc_evolucioncarga","db_cargaarchivo"],["svc_evolucioncarga","db_movimientostock"],["svc_evolucioncarga","db_mapeos"],["ctl_evolucioncarga","svc_remitos"],["svc_remitos","db_remitosinternos"],["api_client","ctl_evolucionanalisis"],["ctl_evolucionanalisis","svc_evolucionanalisis"],["svc_evolucionanalisis","db_movimientostock"]],
+      steps:[
+        "CargaArchivosPage sube el Excel de compras o ventas.",
+        "POST /evolucion-stock/compras o /ventas.",
+        "EvolucionStockCargaService parsea el archivo, normaliza nombres/colores (ColorMapeo/DepositoMapeo) y crea una CargaArchivo con sus MovimientoStock asociados.",
+        "Los remitos internos siguen un camino paralelo (RemitosCargaService) hacia RemitosInternos.",
+        "El análisis posterior (ranking de rotación, matriz de transferencias) se lee agregando MovimientoStock vía EvolucionStockAnalisisController/Service."
+      ]},
+    { id:"f8", mod:"meta", title:"Campaña Catálogo Meta", desc:"Sincronización async con Meta Ads",
+      nodes:["fe_metacatalog","api_client","ctl_metacampaign","svc_metaprocessor","db_metacampaigns","svc_metabackground","ext_metagraph","ext_cloudinary","db_metaexecutions","db_metaproductstates","svc_metascheduler"],
+      edges:[["fe_metacatalog","api_client"],["api_client","ctl_metacampaign"],["ctl_metacampaign","svc_metaprocessor"],["svc_metaprocessor","db_metacampaigns"],["svc_metaprocessor","svc_metabackground"],["svc_metabackground","ext_metagraph"],["svc_metabackground","ext_cloudinary"],["svc_metabackground","db_metaexecutions"],["svc_metabackground","db_metaproductstates"],["svc_metascheduler","svc_metaprocessor"]],
+      steps:[
+        "El admin crea/edita la campaña en MetaCatalogPage (y opcionalmente sube una plantilla, que se guarda en Cloudinary).",
+        "POST /metacampaign crea el registro en MetaCampaigns.",
+        "Al presionar \"Ejecutar\": POST /{id}/ejecutar → MetaCatalogProcessorService crea una MetaCampaignExecution y encola el trabajo en memoria (Channel<int>).",
+        "MetaCatalogBackgroundService consume la cola: trae productos desde Meta Graph API, procesa las imágenes y las sube a Cloudinary, actualizando MetaProductState por producto.",
+        "El frontend hace polling de /ejecuciones para mostrar el progreso.",
+        "MetaCampaignSchedulerService puede disparar esta misma ejecución automáticamente según la frecuencia configurada, sin intervención del usuario."
+      ]},
+    { id:"f9", mod:"cambios", title:"Devolución Mercado Libre", desc:"Nota de crédito / traslado",
+      nodes:["fe_devolucionesml","api_client","ctl_devolucionml","svc_devolucionml","db_devolucionesml"],
+      edges:[["fe_devolucionesml","api_client"],["api_client","ctl_devolucionml"],["ctl_devolucionml","svc_devolucionml"],["svc_devolucionml","db_devolucionesml"]],
+      steps:[
+        "El usuario gestiona una devolución ML desde el modal DevolucionMercadoLibreModal.tsx.",
+        "PATCH /{id}/nota-credito o PATCH /{id}/traslado.",
+        "DevolucionesMercadoLibreController delega en IDevolucionMercadoLibreService.",
+        "El servicio actualiza el estado correspondiente en la tabla DevolucionesMercadoLibre.",
+        "Las estadísticas del módulo se recalculan vía GET /estadisticas."
+      ]}
+  ];
+
+  /* ---------------------------------------------------------------------
+   * 2. LAYOUT
+   * ------------------------------------------------------------------- */
+
+  var NODE_H = 34, ROW_GAP = 14, ROW_STEP = NODE_H + ROW_GAP, HEADER_Y = 76, PAD_BOTTOM = 40;
+
+  var colCounts = {};
+  COLS.forEach(function(c){ colCounts[c.key] = NODES.filter(function(n){return n.col===c.key;}).length; });
+  var maxColHeight = 0;
+  COLS.forEach(function(c){
+    var h = colCounts[c.key]*ROW_STEP - ROW_GAP;
+    if(h>maxColHeight) maxColHeight = h;
+  });
+  var SVG_H = HEADER_Y + maxColHeight + PAD_BOTTOM;
+  var lastCol = COLS[COLS.length-1];
+  var SVG_W = lastCol.x + lastCol.w + 40;
+
+  var colProgress = {};
+  COLS.forEach(function(c){ colProgress[c.key] = 0; });
+
+  var byId = {};
+  NODES.forEach(function(n){
+    var colDef = null;
+    for(var i=0;i<COLS.length;i++){ if(COLS[i].key===n.col){ colDef = COLS[i]; break; } }
+    var colHeight = colCounts[n.col]*ROW_STEP - ROW_GAP;
+    var startY = HEADER_Y + (maxColHeight - colHeight)/2;
+    var idx = colProgress[n.col]++;
+    n.x = colDef.x + 10;
+    n.w = colDef.w - 20;
+    n.h = NODE_H;
+    n.y = startY + idx*ROW_STEP;
+    n.cx = n.x + n.w/2;
+    n.cy = n.y + n.h/2;
+    byId[n.id] = n;
+  });
+
+  EDGES.forEach(function(e){
+    e.from = e[0]; e.to = e[1]; e.opts = e[2] || {};
+    e.key = e.from + "__" + e.to;
+  });
+
+  var SVGNS = "http://www.w3.org/2000/svg";
+  function el(tag, attrs){
+    var e = document.createElementNS(SVGNS, tag);
+    for(var k in attrs){ e.setAttribute(k, attrs[k]); }
+    return e;
+  }
+
+  var svg = document.getElementById("diagram");
+  svg.setAttribute("viewBox", "0 0 " + SVG_W + " " + SVG_H);
+  svg.setAttribute("width", SVG_W);
+  svg.setAttribute("height", SVG_H);
+
+  var viewport = el("g", { id:"viewport" });
+  svg.appendChild(viewport);
+
+  // column headers
+  COLS.forEach(function(c){
+    var g = el("g", { class:"col-header" });
+    g.appendChild(el("rect", { x:c.x, y:16, width:c.w, height:42, rx:9 }));
+    var t1 = el("text", { x:c.x+12, y:36 });
+    t1.textContent = c.title;
+    g.appendChild(t1);
+    var t2 = el("text", { x:c.x+12, y:50, class:"subtitle" });
+    t2.textContent = c.subtitle;
+    g.appendChild(t2);
+    viewport.appendChild(g);
+  });
+
+  // edges layer
+  var edgeLayer = el("g", { id:"edge-layer" });
+  viewport.appendChild(edgeLayer);
+
+  function edgePath(e){
+    var a = byId[e.from], b = byId[e.to];
+    var x1 = a.x + a.w, y1 = a.cy;
+    var x2 = b.x, y2 = b.cy;
+    if(e.opts.loop){
+      var bulge = e.opts.bulge || 50;
+      var topNode = (a.cy < b.cy) ? a : b;
+      var botNode = (a.cy < b.cy) ? b : a;
+      var xr = Math.max(a.x+a.w, b.x+b.w) + bulge;
+      var sx = topNode.x + topNode.w, sy = topNode.cy;
+      var ex = botNode.x + botNode.w, ey = botNode.cy;
+      return "M "+sx+" "+sy+" C "+xr+" "+sy+", "+xr+" "+ey+", "+ex+" "+ey;
+    }
+    if(e.opts.dashed){
+      var midY = SVG_H - 18;
+      return "M "+x1+" "+y1+" C "+x1+" "+midY+", "+x2+" "+midY+", "+x2+" "+y2;
+    }
+    var dx = Math.max(40, (x2-x1)*0.42);
+    return "M "+x1+" "+y1+" C "+(x1+dx)+" "+y1+", "+(x2-dx)+" "+y2+", "+x2+" "+y2;
+  }
+
+  EDGES.forEach(function(e){
+    var p = el("path", {
+      class: "edge" + (e.opts.dashed ? " dashed" : ""),
+      d: edgePath(e),
+      "data-from": e.from,
+      "data-to": e.to
+    });
+    edgeLayer.appendChild(p);
+    e.pathEl = p;
+  });
+
+  // nodes layer
+  var nodeLayer = el("g", { id:"node-layer" });
+  viewport.appendChild(nodeLayer);
+
+  NODES.forEach(function(n){
+    var mod = MODULES[n.mod];
+    var g = el("g", { class:"node", "data-id":n.id });
+
+    g.appendChild(el("rect", {
+      class:"body", x:n.x, y:n.y, width:n.w, height:n.h, rx:8,
+      fill:"#1c1b22"
+    }));
+    g.appendChild(el("rect", {
+      class:"accent", x:n.x, y:n.y, width:4, height:n.h, rx:2,
+      fill:mod.color
+    }));
+
+    var hasSub = n.sub && n.sub.length>0;
+    var labelY = hasSub ? n.y + 14 : n.y + n.h/2 + 4;
+    var t = el("text", { x:n.x+13, y:labelY });
+    t.textContent = truncate(n.label, hasSub?24:26);
+    g.appendChild(t);
+
+    if(hasSub){
+      var st = el("text", { class:"sub", x:n.x+13, y:n.y + 27 });
+      st.textContent = truncate(n.sub, 34);
+      g.appendChild(st);
+    }
+
+    var badge = el("g", { class:"badge" });
+    badge.appendChild(el("circle", { cx:n.x+n.w-10, cy:n.y+10, r:9 }));
+    var bt = el("text", { x:n.x+n.w-10, y:n.y+13, "text-anchor":"middle" });
+    badge.appendChild(bt);
+    n.badgeText = bt;
+    g.appendChild(badge);
+
+    nodeLayer.appendChild(g);
+    n.gEl = g;
+
+    g.addEventListener("mouseenter", function(ev){ showTooltip(n, ev); });
+    g.addEventListener("mousemove", function(ev){ moveTooltip(ev); });
+    g.addEventListener("mouseleave", hideTooltip);
+  });
+
+  function truncate(s, max){
+    if(!s) return "";
+    return s.length>max ? s.slice(0,max-1)+"…" : s;
+  }
+
+  /* ---------------------------------------------------------------------
+   * 3. TOOLTIP
+   * ------------------------------------------------------------------- */
+  var tooltip = document.getElementById("tooltip");
+  function showTooltip(n, ev){
+    var mod = MODULES[n.mod];
+    tooltip.innerHTML =
+      '<div class="tt-title"><span class="tt-swatch" style="background:'+mod.color+'"></span>'+n.label+'</div>' +
+      (n.sub ? '<div class="tt-sub">'+escapeHtml(n.sub)+'</div>' : '') +
+      '<div class="tt-desc">'+escapeHtml(n.desc)+'</div>';
+    tooltip.classList.add("show");
+    moveTooltip(ev);
+  }
+  function moveTooltip(ev){
+    var pad = 16;
+    var x = ev.clientX + pad, y = ev.clientY + pad;
+    var maxX = window.innerWidth - 320;
+    var maxY = window.innerHeight - 140;
+    if(x>maxX) x = ev.clientX - 300 - pad;
+    if(y>maxY) y = ev.clientY - 120;
+    tooltip.style.left = x+"px";
+    tooltip.style.top = y+"px";
+  }
+  function hideTooltip(){ tooltip.classList.remove("show"); }
+  function escapeHtml(s){
+    return s.replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+
+  /* ---------------------------------------------------------------------
+   * 4. HIGHLIGHT (flujos y módulos)
+   * ------------------------------------------------------------------- */
+
+  function clearHighlight(){
+    NODES.forEach(function(n){
+      n.gEl.classList.remove("dimmed","active-flow");
+      n.badgeText.textContent = "";
+    });
+    EDGES.forEach(function(e){
+      e.pathEl.classList.remove("dimmed","active-edge");
+      e.pathEl.style.stroke = "";
+    });
+    document.querySelectorAll(".flow-card").forEach(function(c){ c.classList.remove("active"); });
+    document.getElementById("flow-detail").classList.remove("show");
+  }
+
+  function highlightFlow(flow){
+    clearHighlight();
+    var mod = MODULES[flow.mod];
+    var nodeSet = {}; flow.nodes.forEach(function(id){ nodeSet[id]=true; });
+    var edgeSet = {}; flow.edges.forEach(function(pair){ edgeSet[pair[0]+"__"+pair[1]] = true; });
+
+    NODES.forEach(function(n){
+      if(nodeSet[n.id]){
+        n.gEl.classList.add("active-flow");
+      } else {
+        n.gEl.classList.add("dimmed");
+      }
+    });
+    flow.nodes.forEach(function(id, i){
+      byId[id].badgeText.textContent = (i+1);
+    });
+    EDGES.forEach(function(e){
+      if(edgeSet[e.key]){
+        e.pathEl.classList.add("active-edge");
+        e.pathEl.style.stroke = mod.color;
+      } else {
+        e.pathEl.classList.add("dimmed");
+      }
+    });
+
+    document.querySelectorAll(".flow-card").forEach(function(c){
+      c.classList.toggle("active", c.getAttribute("data-flow")===flow.id);
+    });
+
+    var detail = document.getElementById("flow-detail");
+    document.getElementById("flow-detail-title").innerHTML =
+      '<span class="tt-swatch" style="background:'+mod.color+';display:inline-block;"></span> ' + flow.title;
+    var ol = document.getElementById("flow-detail-steps");
+    ol.innerHTML = "";
+    flow.steps.forEach(function(s){
+      var li = document.createElement("li");
+      li.textContent = s;
+      ol.appendChild(li);
+    });
+    detail.classList.add("show");
+  }
+
+  function highlightModule(modKey){
+    clearHighlight();
+    var mod = MODULES[modKey];
+    NODES.forEach(function(n){
+      if(n.mod===modKey){ n.gEl.classList.add("active-flow"); }
+      else { n.gEl.classList.add("dimmed"); }
+    });
+    EDGES.forEach(function(e){
+      var a = byId[e.from], b = byId[e.to];
+      if(a.mod===modKey && b.mod===modKey){
+        e.pathEl.classList.add("active-edge");
+        e.pathEl.style.stroke = mod.color;
+      } else {
+        e.pathEl.classList.add("dimmed");
+      }
+    });
+  }
+
+  /* ---------------------------------------------------------------------
+   * 5. PANEL: flujos + leyenda
+   * ------------------------------------------------------------------- */
+
+  var flowList = document.getElementById("flow-list");
+  FLOWS.forEach(function(flow, i){
+    var mod = MODULES[flow.mod];
+    var card = document.createElement("div");
+    card.className = "flow-card";
+    card.setAttribute("data-flow", flow.id);
+    card.style.borderLeftColor = mod.color;
+    card.innerHTML =
+      '<div class="fc-top">' +
+        '<div class="fc-num" style="background:'+mod.color+'">'+(i+1)+'</div>' +
+        '<div class="fc-title">'+flow.title+'</div>' +
+      '</div>' +
+      '<div class="fc-desc">'+flow.desc+'</div>';
+    card.addEventListener("click", function(){ highlightFlow(flow); });
+    flowList.appendChild(card);
+  });
+
+  var legendList = document.getElementById("legend-list");
+  Object.keys(MODULES).forEach(function(key){
+    if(key==="core"||key==="external") return;
+    var mod = MODULES[key];
+    var row = document.createElement("div");
+    row.className = "legend-row";
+    row.innerHTML = '<span class="dot" style="background:'+mod.color+'"></span>' + mod.name;
+    row.addEventListener("click", function(){ highlightModule(key); });
+    legendList.appendChild(row);
+  });
+
+  document.getElementById("reset-highlight").addEventListener("click", clearHighlight);
+
+  /* ---------------------------------------------------------------------
+   * 6. ZOOM / PAN
+   * ------------------------------------------------------------------- */
+
+  var wrap = document.getElementById("diagram-wrap");
+  var scale = 1, tx = 0, ty = 0;
+  function applyTransform(){
+    viewport.setAttribute("transform", "translate("+tx+","+ty+") scale("+scale+")");
+  }
+
+  function fitToWidth(){
+    var cw = wrap.clientWidth || 900;
+    scale = Math.min(1, (cw-24)/SVG_W);
+    if(scale < 0.32) scale = 0.32;
+    tx = 0; ty = 0;
+    svg.setAttribute("width", SVG_W*scale);
+    svg.setAttribute("height", SVG_H*scale);
+    viewport.removeAttribute("transform");
+    viewport.setAttribute("transform","scale(1)");
+    // use plain scaling via viewBox width instead of transform for crisp fit
+    scale = 1;
+    svg.removeAttribute("width");
+    svg.removeAttribute("height");
+    svg.style.width = (SVG_W*Math.min(1,(cw-24)/SVG_W))+"px";
+    svg.style.height = "auto";
+    applyTransform();
+  }
+
+  document.getElementById("zoom-in").addEventListener("click", function(){
+    var cur = parseFloat(svg.style.width)||SVG_W;
+    svg.style.width = Math.min(SVG_W*2.4, cur*1.2)+"px";
+  });
+  document.getElementById("zoom-out").addEventListener("click", function(){
+    var cur = parseFloat(svg.style.width)||SVG_W;
+    svg.style.width = Math.max(SVG_W*0.3, cur*0.83)+"px";
+  });
+  document.getElementById("zoom-reset").addEventListener("click", fitToWidth);
+
+  wrap.addEventListener("wheel", function(ev){
+    ev.preventDefault();
+    var factor = ev.deltaY < 0 ? 1.12 : 0.89;
+    var rect = wrap.getBoundingClientRect();
+    var mouseX = ev.clientX - rect.left + wrap.scrollLeft;
+    var mouseY = ev.clientY - rect.top + wrap.scrollTop;
+
+    var curWidth = parseFloat(svg.style.width) || SVG_W;
+    var newWidth = Math.min(SVG_W * 2.5, Math.max(SVG_W * 0.35, curWidth * factor));
+    var ratio = newWidth / curWidth;
+
+    svg.style.width = newWidth + "px";
+    svg.style.height = "auto";
+
+    wrap.scrollLeft = mouseX * ratio - (ev.clientX - rect.left);
+    wrap.scrollTop = mouseY * ratio - (ev.clientY - rect.top);
+  }, { passive: false });
+
+  // drag to pan (native scroll of the wrap container)
+  var dragging=false, sx=0, sy=0, sl=0, st=0;
+  wrap.addEventListener("mousedown", function(ev){
+    dragging = true; sx=ev.clientX; sy=ev.clientY; sl=wrap.scrollLeft; st=wrap.scrollTop;
+    wrap.classList.add("grabbing");
+  });
+  window.addEventListener("mousemove", function(ev){
+    if(!dragging) return;
+    wrap.scrollLeft = sl - (ev.clientX-sx);
+    wrap.scrollTop = st - (ev.clientY-sy);
+  });
+  window.addEventListener("mouseup", function(){ dragging=false; wrap.classList.remove("grabbing"); });
+
+  window.addEventListener("resize", fitToWidth);
+  fitToWidth();
+  applyTransform();
+
+})();
+</script>
+</body>
+</html>

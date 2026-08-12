@@ -6,9 +6,14 @@ import { applicationNames, formatDateTime, formatStatus } from '../../lib/format
 interface OverviewPageProps {
   overview: Overview
   onSelectEvent: (id: string) => void
+  onSelectArchitecture?: (slug: string) => void
 }
 
-export function OverviewPage({ overview, onSelectEvent }: OverviewPageProps) {
+export function OverviewPage({
+  overview,
+  onSelectEvent,
+  onSelectArchitecture,
+}: OverviewPageProps) {
   const healthyApplications = overview.applications.filter(
     (application) => application.status === 'healthy' || application.status === 'ok',
   ).length
@@ -50,7 +55,10 @@ export function OverviewPage({ overview, onSelectEvent }: OverviewPageProps) {
       </section>
 
       <div className="overview-grid">
-        <ApplicationsPanel overview={overview} />
+        <ApplicationsPanel
+          onSelectArchitecture={onSelectArchitecture}
+          overview={overview}
+        />
         <RecentEventsPanel overview={overview} onSelectEvent={onSelectEvent} />
       </div>
     </main>
@@ -73,7 +81,13 @@ function Metric({ label, value, description }: MetricProps) {
   )
 }
 
-function ApplicationsPanel({ overview }: { overview: Overview }) {
+function ApplicationsPanel({
+  overview,
+  onSelectArchitecture,
+}: {
+  overview: Overview
+  onSelectArchitecture?: (slug: string) => void
+}) {
   return (
     <section className="panel">
       <div className="panel-title">
@@ -90,6 +104,17 @@ function ApplicationsPanel({ overview }: { overview: Overview }) {
               <small>{formatStatus(application.status)}</small>
             </div>
             <time>{formatDateTime(application.last_success_at)}</time>
+            {onSelectArchitecture && (
+              <button
+                className="app-arch-btn"
+                onClick={() => onSelectArchitecture(application.slug)}
+                title={`Ver diagrama de arquitectura de ${application.display_name}`}
+                type="button"
+              >
+                <i className="ti ti-sitemap" />
+                <span>Arquitectura</span>
+              </button>
+            )}
           </div>
         ))}
       </div>
