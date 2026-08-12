@@ -6,5 +6,5 @@ export const onRequest: PagesFunction<Env> = async ({ request, env }) => {
     return new Response('WATCHMAN_ORIGIN is not configured', { status: 503 })
   const incoming = new URL(request.url)
   const target = new URL(incoming.pathname + incoming.search, env.WATCHMAN_ORIGIN)
-  return fetch(new Request(target, request))
+  return fetch(new Request(target.toString(), request))
 }
