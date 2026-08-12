@@ -103,6 +103,38 @@ export interface Overview {
   event_total: number
   generated_at: string
 }
+export type AvailabilityStatus = 'unknown' | 'operational' | 'degraded' | 'major_outage'
+export interface PublicStatus {
+  status: AvailabilityStatus
+  generated_at: string
+  applications: Array<{
+    slug: string
+    display_name: string
+    status: AvailabilityStatus
+    components: Array<{
+      name: string
+      status: 'unknown' | 'up' | 'down'
+      last_checked_at?: string
+    }>
+    uptime_30_days: number | null
+    last_checked_at?: string
+  }>
+  incidents: Array<{
+    id: string
+    application: string
+    title: string
+    message: string
+    status: IncidentStatus
+    published_at: string
+    resolved_at?: string
+  }>
+}
+export interface SystemHealth {
+  status: string
+  generated_at: string
+  signals: Array<{ name: string; status: string; detail?: string; last_seen_at?: string }>
+  queues: Record<string, number>
+}
 export interface Interpretation {
   summary: string
   explanation: string
@@ -172,6 +204,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  publicStatus: () => request<PublicStatus>('/api/v1/public/status'),
   session: () => request<{ authenticated: boolean }>('/api/v1/session'),
   login: (password: string) =>
     request('/api/v1/session', { method: 'POST', body: JSON.stringify({ password }) }),
@@ -179,6 +212,7 @@ export const api = {
   overview: () => request<Overview>('/api/v1/overview'),
   integrations: () =>
     request<{ integrations: IntegrationStatus[] }>('/api/v1/integrations'),
+  systemHealth: () => request<SystemHealth>('/api/v1/system/health'),
   events: (query: URLSearchParams) =>
     request<{ events: EventSummary[]; total: number; limit: number; offset: number }>(
       `/api/v1/events?${query}`,

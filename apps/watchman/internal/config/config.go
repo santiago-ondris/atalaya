@@ -14,19 +14,21 @@ import (
 )
 
 type Config struct {
-	Environment         string
-	HTTPAddress         string
-	DatabaseURL         string
-	ShutdownTimeout     time.Duration
-	ReadinessTimeout    time.Duration
-	PollInterval        time.Duration
-	Interpreter         InterpreterConfig
-	Sentry              SentryConfig
-	ApplicationInsights ApplicationInsightsConfig
-	Telegram            TelegramConfig
-	Auth                AuthConfig
-	Reporting           ReportingConfig
-	Deployments         DeploymentConfig
+	Environment             string
+	HTTPAddress             string
+	DatabaseURL             string
+	ShutdownTimeout         time.Duration
+	ReadinessTimeout        time.Duration
+	PollInterval            time.Duration
+	Interpreter             InterpreterConfig
+	Sentry                  SentryConfig
+	ApplicationInsights     ApplicationInsightsConfig
+	Telegram                TelegramConfig
+	Auth                    AuthConfig
+	Reporting               ReportingConfig
+	Deployments             DeploymentConfig
+	AvailabilityCatalogPath string
+	HealthchecksPingURL     string
 }
 
 type DeploymentConfig struct{ IngestToken, RailwayToken string }
@@ -153,8 +155,10 @@ func Load() (Config, error) {
 			PasswordHash: os.Getenv("ATALAYA_ADMIN_PASSWORD_HASH"),
 			CookieSecure: envOrDefault("ATALAYA_COOKIE_SECURE", "true") == "true",
 		},
-		Reporting:   ReportingConfig{WorkerID: envOrDefault("DAILY_REPORT_WORKER_ID", "watchman-daily-report-1")},
-		Deployments: DeploymentConfig{IngestToken: os.Getenv("DEPLOYMENT_INGEST_TOKEN"), RailwayToken: os.Getenv("RAILWAY_WEBHOOK_TOKEN")},
+		Reporting:               ReportingConfig{WorkerID: envOrDefault("DAILY_REPORT_WORKER_ID", "watchman-daily-report-1")},
+		Deployments:             DeploymentConfig{IngestToken: os.Getenv("DEPLOYMENT_INGEST_TOKEN"), RailwayToken: os.Getenv("RAILWAY_WEBHOOK_TOKEN")},
+		AvailabilityCatalogPath: envOrDefault("AVAILABILITY_CATALOG_PATH", "config/availability-targets.json"),
+		HealthchecksPingURL:     os.Getenv("HEALTHCHECKS_PING_URL"),
 	}
 	var err error
 	cfg.PollInterval, err = durationSeconds("POLL_INTERVAL_SECONDS", 120)

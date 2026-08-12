@@ -10,6 +10,7 @@ import { OverviewPage } from './features/overview/OverviewPage'
 import { ReportsPage } from './features/reports/ReportsPage'
 import { SystemPage } from './features/system/SystemPage'
 import './App.css'
+import { StatusPage } from './features/status/StatusPage'
 
 const OperationsPage = lazy(() =>
   import('./features/operations/OperationsPage').then((module) => ({
@@ -18,6 +19,11 @@ const OperationsPage = lazy(() =>
 )
 
 function App() {
+  if (window.location.pathname === '/status') return <StatusPage />
+  return <PrivateApp />
+}
+
+function PrivateApp() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
   const [activeView, setActiveView] = useState<View>('overview')
   const [overview, setOverview] = useState<Overview | null>(null)

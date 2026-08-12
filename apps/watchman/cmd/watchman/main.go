@@ -12,11 +12,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	applicationinsights "github.com/santiago-ondris/atalaya/apps/watchman/internal/applicationinsights"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/auth"
+	"github.com/santiago-ondris/atalaya/apps/watchman/internal/availability"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/config"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/database"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/domain"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/httpserver"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/interpreter"
+	"github.com/santiago-ondris/atalaya/apps/watchman/internal/meta"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/notification"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/poller"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/reporting"
@@ -46,6 +48,7 @@ func main() {
 	defer pool.Close()
 
 	postgresStore := store.NewPostgres(pool)
+	go meta.Heartbeat(ctx, pool, "interpreter_worker")
 	activitySources := map[string][]reporting.ActivitySource{}
 	interpreterClient := interpreter.NewClient(cfg.Interpreter.URL, cfg.Interpreter.Timeout, nil)
 	go interpreter.NewWorker(postgresStore, interpreterClient, cfg.Interpreter.WorkerID, cfg.Interpreter.PollInterval,
@@ -59,6 +62,7 @@ func main() {
 		go notification.NewWorker(postgresStore, telegramClient, cfg.Telegram.WorkerID,
 			cfg.Telegram.PollInterval, links, logger).Run(ctx)
 		logger.Info("Telegram notification worker enabled")
+		go meta.Heartbeat(ctx, pool, "notification_worker")
 	} else {
 		logger.Warn("Telegram notifications disabled", "reason", "TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are not configured")
 	}
@@ -129,8 +133,19 @@ func main() {
 		logger.Error("failed to configure daily report scheduler", "error", scheduleErr)
 	} else {
 		go reportScheduler.Run(ctx)
+		go meta.Heartbeat(ctx, pool, "report_worker")
 		logger.Info("daily report scheduler enabled", "timezone", reporting.Timezone, "interval", cfg.Reporting.SchedulerInterval)
 	}
+	targets, availabilityErr := availability.LoadCatalog(cfg.AvailabilityCatalogPath)
+	if availabilityErr != nil {
+		logger.Error("failed to load availability catalog", "error", availabilityErr)
+	} else {
+		go availability.New(pool, targets, telegramClient).Run(ctx)
+		go meta.Heartbeat(ctx, pool, "health_checker")
+	}
+	monitor := meta.New(pool, telegramClient, cfg.HealthchecksPingURL, cfg.PollInterval)
+	go meta.Heartbeat(ctx, pool, "internal_evaluator")
+	go monitor.Run(ctx)
 	if telegramClient != nil {
 		go reporting.NewWorker(postgresStore, telegramClient, cfg.Reporting.WorkerID, cfg.Telegram.PollInterval, logger).Run(ctx)
 		logger.Info("daily report delivery worker enabled")
@@ -139,6 +154,7 @@ func main() {
 	authService := auth.New(postgresStore, cfg.Auth.PasswordHash, cfg.Auth.SessionDuration)
 	server := httpserver.New(cfg.HTTPAddress, databaseWithQueries{Pool: pool, Postgres: postgresStore}, authService, logger, cfg.ReadinessTimeout, cfg.Auth.CookieSecure)
 	server.ConfigureDeploymentHooks(cfg.Deployments.IngestToken, cfg.Deployments.RailwayToken)
+	server.ConfigureHealth(monitor)
 	serverErrors := make(chan error, 1)
 	go func() {
 		logger.Info("watchman listening", "address", cfg.HTTPAddress, "environment", cfg.Environment)

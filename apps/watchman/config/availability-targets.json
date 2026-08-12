@@ -1,0 +1,12 @@
+{
+  "targets": [
+    {"id":"farmami_frontend","application":"farmami","display_name":"Farmami","component":"frontend","url_env":"FARMAMI_FRONTEND_URL"},
+    {"id":"farmami_backend","application":"farmami","display_name":"Farmami","component":"backend","url_env":"FARMAMI_BACKEND_HEALTH_URL"},
+    {"id":"wheels_house_frontend","application":"wheels_house","display_name":"Wheels House","component":"frontend","url_env":"WHEELS_HOUSE_FRONTEND_URL"},
+    {"id":"wheels_house_backend","application":"wheels_house","display_name":"Wheels House","component":"backend","url_env":"WHEELS_HOUSE_BACKEND_HEALTH_URL"},
+    {"id":"prensap_frontend","application":"prensap","display_name":"Prensap","component":"frontend","url_env":"PRENSAP_FRONTEND_URL"},
+    {"id":"prensap_backend","application":"prensap","display_name":"Prensap","component":"backend","url_env":"PRENSAP_BACKEND_HEALTH_URL"},
+    {"id":"notizap_frontend","application":"notizap","display_name":"Notizap","component":"frontend","url_env":"NOTIZAP_FRONTEND_URL"},
+    {"id":"notizap_backend","application":"notizap","display_name":"Notizap","component":"backend","url_env":"NOTIZAP_BACKEND_HEALTH_URL"}
+  ]
+}

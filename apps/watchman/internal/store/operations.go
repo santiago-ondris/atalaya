@@ -36,15 +36,46 @@ type IncidentEntry struct {
 }
 
 type Incident struct {
-	ID          string              `json:"id"`
-	Application string              `json:"application"`
-	Title       string              `json:"title"`
-	Status      string              `json:"status"`
-	CreatedAt   time.Time           `json:"created_at"`
-	UpdatedAt   time.Time           `json:"updated_at"`
-	ClosedAt    *time.Time          `json:"closed_at,omitempty"`
-	Groups      []ErrorGroupSummary `json:"groups,omitempty"`
-	Entries     []IncidentEntry     `json:"entries,omitempty"`
+	ID            string              `json:"id"`
+	Application   string              `json:"application"`
+	Title         string              `json:"title"`
+	Status        string              `json:"status"`
+	CreatedAt     time.Time           `json:"created_at"`
+	UpdatedAt     time.Time           `json:"updated_at"`
+	ClosedAt      *time.Time          `json:"closed_at,omitempty"`
+	PublicTitle   *string             `json:"public_title,omitempty"`
+	PublicMessage *string             `json:"public_message,omitempty"`
+	PublishedAt   *time.Time          `json:"published_at,omitempty"`
+	Groups        []ErrorGroupSummary `json:"groups,omitempty"`
+	Entries       []IncidentEntry     `json:"entries,omitempty"`
+}
+
+type PublicIncident struct {
+	ID          string     `json:"id"`
+	Application string     `json:"application"`
+	Title       string     `json:"title"`
+	Message     string     `json:"message"`
+	Status      string     `json:"status"`
+	PublishedAt time.Time  `json:"published_at"`
+	ResolvedAt  *time.Time `json:"resolved_at,omitempty"`
+}
+
+type PublicComponent struct {
+	Name          string     `json:"name"`
+	Status        string     `json:"status"`
+	LastCheckedAt *time.Time `json:"last_checked_at,omitempty"`
+}
+type PublicApplicationStatus struct {
+	Slug          string            `json:"slug"`
+	DisplayName   string            `json:"display_name"`
+	Status        string            `json:"status"`
+	Components    []PublicComponent `json:"components"`
+	Uptime30Days  *float64          `json:"uptime_30_days"`
+	LastCheckedAt *time.Time        `json:"last_checked_at,omitempty"`
+}
+type PublicStatus struct {
+	Applications []PublicApplicationStatus `json:"applications"`
+	Incidents    []PublicIncident          `json:"incidents"`
 }
 
 type IncidentFilter struct {
@@ -162,7 +193,7 @@ func (s *Postgres) CreateIncident(ctx context.Context, title string, groupIDs []
 }
 
 func (s *Postgres) ListIncidents(ctx context.Context, f IncidentFilter) ([]Incident, error) {
-	rows, err := s.pool.Query(ctx, `SELECT n.id::text,a.slug,n.title,n.status,n.created_at,n.updated_at,n.closed_at FROM incidents n JOIN applications a ON a.id=n.application_id WHERE($1=''OR a.slug=$1)AND($2=''OR n.status=$2)ORDER BY n.created_at DESC LIMIT $3 OFFSET $4`, f.Application, f.Status, f.Limit, f.Offset)
+	rows, err := s.pool.Query(ctx, `SELECT n.id::text,a.slug,n.title,n.status,n.created_at,n.updated_at,n.closed_at,n.public_title,n.public_message,n.published_at FROM incidents n JOIN applications a ON a.id=n.application_id WHERE($1=''OR a.slug=$1)AND($2=''OR n.status=$2)ORDER BY n.created_at DESC LIMIT $3 OFFSET $4`, f.Application, f.Status, f.Limit, f.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +201,7 @@ func (s *Postgres) ListIncidents(ctx context.Context, f IncidentFilter) ([]Incid
 	items := []Incident{}
 	for rows.Next() {
 		var n Incident
-		if err := rows.Scan(&n.ID, &n.Application, &n.Title, &n.Status, &n.CreatedAt, &n.UpdatedAt, &n.ClosedAt); err != nil {
+		if err := rows.Scan(&n.ID, &n.Application, &n.Title, &n.Status, &n.CreatedAt, &n.UpdatedAt, &n.ClosedAt, &n.PublicTitle, &n.PublicMessage, &n.PublishedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, n)
@@ -180,7 +211,7 @@ func (s *Postgres) ListIncidents(ctx context.Context, f IncidentFilter) ([]Incid
 
 func (s *Postgres) Incident(ctx context.Context, id string) (Incident, error) {
 	var n Incident
-	err := s.pool.QueryRow(ctx, `SELECT n.id::text,a.slug,n.title,n.status,n.created_at,n.updated_at,n.closed_at FROM incidents n JOIN applications a ON a.id=n.application_id WHERE n.id=$1`, id).Scan(&n.ID, &n.Application, &n.Title, &n.Status, &n.CreatedAt, &n.UpdatedAt, &n.ClosedAt)
+	err := s.pool.QueryRow(ctx, `SELECT n.id::text,a.slug,n.title,n.status,n.created_at,n.updated_at,n.closed_at,n.public_title,n.public_message,n.published_at FROM incidents n JOIN applications a ON a.id=n.application_id WHERE n.id=$1`, id).Scan(&n.ID, &n.Application, &n.Title, &n.Status, &n.CreatedAt, &n.UpdatedAt, &n.ClosedAt, &n.PublicTitle, &n.PublicMessage, &n.PublishedAt)
 	if err != nil {
 		return n, err
 	}
@@ -275,7 +306,7 @@ func (s *Postgres) ChangeIncidentStatus(ctx context.Context, id, status, note st
 			}
 		}
 	}
-	_, err = tx.Exec(ctx, `UPDATE incidents SET status=$2,closed_at=CASE WHEN $2='investigating' THEN NULL ELSE now() END,updated_at=now() WHERE id=$1`, id, status)
+	_, err = tx.Exec(ctx, `UPDATE incidents SET status=$2,closed_at=CASE WHEN $2='investigating' THEN NULL ELSE now() END,updated_at=now(),public_title=CASE WHEN $2='noise' THEN NULL ELSE public_title END,public_message=CASE WHEN $2='noise' THEN NULL ELSE public_message END,published_at=CASE WHEN $2='noise' THEN NULL ELSE published_at END WHERE id=$1`, id, status)
 	if err == nil {
 		_, err = tx.Exec(ctx, `INSERT INTO incident_entries(incident_id,kind,body,from_status,to_status)VALUES($1,'status_change',$2,$3,$4)`, id, note, current, status)
 	}

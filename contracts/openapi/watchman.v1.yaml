@@ -101,6 +101,36 @@ paths:
       summary: Resolver, marcar como ruido o reabrir con una conclusión obligatoria
       security: [{ cookieAuth: [] }]
       responses: { '200': { description: Estado actualizado }, '409': { description: Reapertura incompatible } }
+  /incidents/{id}/publication:
+    patch:
+      summary: Publicar, editar o retirar la descripción pública de un incidente
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [published]
+              properties:
+                published: { type: boolean }
+                title: { type: string, maxLength: 160 }
+                message: { type: string, maxLength: 2000 }
+      responses: { '200': { description: Publicación actualizada }, '400': { description: Contenido inválido } }
+  /public/status:
+    get:
+      summary: Estado público de aplicaciones e incidentes publicados
+      security: []
+      responses:
+        '200':
+          description: Estado público sin datos técnicos
+          headers:
+            Cache-Control: { schema: { type: string } }
+  /system/health:
+    get:
+      summary: Heartbeats, pollers y métricas de colas internas
+      security: [{ cookieAuth: [] }]
+      responses: { '200': { description: Salud interna detallada } }
   /deployments:
     get:
       summary: Listar deploy markers

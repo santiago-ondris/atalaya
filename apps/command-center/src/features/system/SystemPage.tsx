@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api, type IntegrationStatus } from '../../api'
+import { api, type IntegrationStatus, type SystemHealth } from '../../api'
 import { ErrorState } from '../../components/feedback/FeedbackState'
 import { SignalFlag } from '../../components/status/SignalFlag'
 import { applicationNames, formatDateTime, formatStatus } from '../../lib/format'
@@ -7,11 +7,16 @@ import { applicationNames, formatDateTime, formatStatus } from '../../lib/format
 export function SystemPage() {
   const [integrations, setIntegrations] = useState<IntegrationStatus[]>([])
   const [error, setError] = useState('')
+  const [health, setHealth] = useState<SystemHealth | null>(null)
 
   useEffect(() => {
     api
       .integrations()
       .then((response) => setIntegrations(response.integrations))
+      .catch(() => setError('No se pudo consultar el estado interno.'))
+    api
+      .systemHealth()
+      .then(setHealth)
       .catch(() => setError('No se pudo consultar el estado interno.'))
   }, [])
 
@@ -34,6 +39,36 @@ export function SystemPage() {
           ))
         )}
       </section>
+      {health && (
+        <section className="panel">
+          <header className="panel-heading">
+            <h2>Procesos y colas</h2>
+            <span>{health.status}</span>
+          </header>
+          {health.signals.map((signal) => (
+            <div className="integration-row" key={signal.name}>
+              <SignalFlag status={signal.status} />
+              <div>
+                <strong>{signal.name.replaceAll('_', ' ')}</strong>
+                <small>{signal.detail || 'Sin anomalías'}</small>
+              </div>
+              <span>{formatStatus(signal.status)}</span>
+              <time>{formatDateTime(signal.last_seen_at)}</time>
+            </div>
+          ))}
+          <div className="integration-row">
+            <div />
+            <div>
+              <strong>Colas</strong>
+              <small>
+                {Object.entries(health.queues)
+                  .map(([name, count]) => `${name}: ${count}`)
+                  .join(' · ')}
+              </small>
+            </div>
+          </div>
+        </section>
+      )}
     </main>
   )
 }

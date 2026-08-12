@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/auth"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/domain"
+	"github.com/santiago-ondris/atalaya/apps/watchman/internal/meta"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/store"
 )
 
@@ -51,6 +52,9 @@ type Server struct {
 	cookieSecure     bool
 	deployToken      string
 	railwayToken     string
+	healthProvider   interface {
+		Health(context.Context) (meta.Health, error)
+	}
 }
 
 func New(address string, database Database, authService *auth.Service, logger *slog.Logger, readinessTimeout time.Duration, cookieSecure bool) *Server {
@@ -59,6 +63,7 @@ func New(address string, database Database, authService *auth.Service, logger *s
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", server.health)
 	mux.HandleFunc("GET /ready", server.ready)
+	mux.HandleFunc("GET /api/v1/public/status", server.publicStatus)
 	mux.Handle("GET /internal/events", server.private(http.HandlerFunc(server.listEvents)))
 	mux.Handle("GET /internal/events/{id}", server.private(http.HandlerFunc(server.eventDetail)))
 	mux.Handle("GET /internal/integrations", server.private(http.HandlerFunc(server.listIntegrations)))
@@ -76,11 +81,13 @@ func New(address string, database Database, authService *auth.Service, logger *s
 	mux.Handle("GET /api/v1/incidents/{id}", server.private(http.HandlerFunc(server.incidentDetail)))
 	mux.Handle("POST /api/v1/incidents/{id}/notes", server.private(http.HandlerFunc(server.addIncidentNote)))
 	mux.Handle("PATCH /api/v1/incidents/{id}/status", server.private(http.HandlerFunc(server.changeIncidentStatus)))
+	mux.Handle("PATCH /api/v1/incidents/{id}/publication", server.private(http.HandlerFunc(server.changeIncidentPublication)))
 	mux.Handle("POST /api/v1/incidents/{id}/groups/{groupId}", server.private(http.HandlerFunc(server.addIncidentGroup)))
 	mux.Handle("DELETE /api/v1/incidents/{id}/groups/{groupId}", server.private(http.HandlerFunc(server.removeIncidentGroup)))
 	mux.Handle("GET /api/v1/deployments", server.private(http.HandlerFunc(server.listDeployments)))
 	mux.Handle("POST /api/v1/deployments", server.private(http.HandlerFunc(server.createManualDeployment)))
 	mux.Handle("GET /api/v1/operations/timeline", server.private(http.HandlerFunc(server.operationsTimeline)))
+	mux.Handle("GET /api/v1/system/health", server.private(http.HandlerFunc(server.systemHealth)))
 	mux.HandleFunc("POST /hooks/v1/deployments", server.ingestDeployment)
 	mux.HandleFunc("POST /hooks/v1/deployments/railway/{application}/{component}", server.ingestRailwayDeployment)
 
@@ -92,6 +99,25 @@ func New(address string, database Database, authService *auth.Service, logger *s
 	}
 
 	return server
+}
+
+func (s *Server) ConfigureHealth(provider interface {
+	Health(context.Context) (meta.Health, error)
+}) {
+	s.healthProvider = provider
+}
+
+func (s *Server) systemHealth(w http.ResponseWriter, r *http.Request) {
+	if s.healthProvider == nil {
+		writeJSON(w, 503, map[string]string{"error": "health evaluator unavailable"})
+		return
+	}
+	health, err := s.healthProvider.Health(r.Context())
+	if err != nil {
+		writeJSON(w, 500, map[string]string{"error": "health evaluation failed"})
+		return
+	}
+	writeJSON(w, 200, health)
 }
 
 func (s *Server) ConfigureDeploymentHooks(token, railwayToken string) {
