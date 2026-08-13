@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { api, type EventSummary } from '../../api'
+import { productApplications } from '../../catalog/applications'
 import { ErrorState, LoadingState } from '../../components/feedback/FeedbackState'
 import { EventFilters, type EventFilterValues } from './EventFilters'
 import { EventsTable } from './EventsTable'
@@ -17,10 +19,14 @@ interface EventsPageProps {
 }
 
 export function EventsPage({ onSelectEvent }: EventsPageProps) {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [events, setEvents] = useState<EventSummary[]>([])
   const [total, setTotal] = useState(0)
   const [offset, setOffset] = useState(0)
-  const [filters, setFilters] = useState(initialFilters)
+  const [filters, setFilters] = useState(() => ({
+    ...initialFilters,
+    application: validApplication(searchParams.get('application')),
+  }))
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -40,9 +46,25 @@ export function EventsPage({ onSelectEvent }: EventsPageProps) {
       .finally(() => setIsLoading(false))
   }, [filters, offset])
 
+  useEffect(() => {
+    const application = validApplication(searchParams.get('application'))
+    setFilters((current) =>
+      current.application === application ? current : { ...current, application },
+    )
+    setOffset(0)
+  }, [searchParams])
+
   function handleFilterChange(name: keyof EventFilterValues, value: string) {
     setFilters((current) => ({ ...current, [name]: value }))
     setOffset(0)
+    if (name === 'application') {
+      setSearchParams((current) => {
+        const next = new URLSearchParams(current)
+        if (value) next.set('application', value)
+        else next.delete('application')
+        return next
+      })
+    }
   }
 
   return (
@@ -77,6 +99,12 @@ export function EventsPage({ onSelectEvent }: EventsPageProps) {
       </section>
     </main>
   )
+}
+
+function validApplication(value: string | null) {
+  return productApplications.some((application) => application.slug === value)
+    ? (value ?? '')
+    : ''
 }
 
 function buildQuery(filters: EventFilterValues, offset: number) {

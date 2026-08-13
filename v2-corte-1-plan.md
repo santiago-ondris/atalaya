@@ -39,6 +39,10 @@ Un sprint está terminado cuando:
 
 ## Sprint V2.0 — Rutas y cimientos de navegación
 
+### Estado
+
+✅ Completado.
+
 ### Objetivo
 
 Reemplazar la navegación privada mantenida únicamente en estado React por URLs reales y preparar la convivencia entre experiencia inmersiva y modo clásico.
@@ -89,6 +93,10 @@ Ninguna. Es el primer sprint del Corte 1.
 ---
 
 ## Sprint V2.1 — Salud normalizada y fichas operativas
+
+### Estado
+
+✅ Completado.
 
 ### Objetivo
 

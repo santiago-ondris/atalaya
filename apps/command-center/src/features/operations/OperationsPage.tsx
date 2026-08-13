@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import {
   Bar,
   BarChart,
@@ -17,12 +18,14 @@ import {
   type OperationsTimeline,
 } from '../../api'
 import { ErrorState, LoadingState } from '../../components/feedback/FeedbackState'
+import { productApplications } from '../../catalog/applications'
 import { applicationNames, formatDateTime } from '../../lib/format'
 
-const apps = ['farmami', 'wheels_house', 'prensap', 'notizap']
-
 export function OperationsPage() {
-  const [application, setApplication] = useState('prensap')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [application, setApplication] = useState(() =>
+    validApplication(searchParams.get('application')),
+  )
   const [component, setComponent] = useState('')
   const [period, setPeriod] = useState('168h')
   const [data, setData] = useState<OperationsTimeline | null>(null)
@@ -38,6 +41,21 @@ export function OperationsPage() {
       .catch(() => setError('No se pudo cargar la bitácora.'))
   }, [application, component, period])
   useEffect(load, [load])
+  useEffect(() => {
+    const next = validApplication(searchParams.get('application'))
+    setApplication(next)
+    setSelected(null)
+  }, [searchParams])
+
+  function changeApplication(value: string) {
+    setApplication(value)
+    setSelected(null)
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current)
+      next.set('application', value)
+      return next
+    })
+  }
 
   const markers = useMemo(
     () =>
@@ -82,13 +100,12 @@ export function OperationsPage() {
           <select
             value={application}
             onChange={(event) => {
-              setApplication(event.target.value)
-              setSelected(null)
+              changeApplication(event.target.value)
             }}
           >
-            {apps.map((app) => (
-              <option key={app} value={app}>
-                {applicationNames[app]}
+            {productApplications.map((app) => (
+              <option key={app.slug} value={app.slug}>
+                {applicationNames[app.slug]}
               </option>
             ))}
           </select>
@@ -246,6 +263,12 @@ export function OperationsPage() {
       )}
     </main>
   )
+}
+
+function validApplication(value: string | null) {
+  return productApplications.some((application) => application.slug === value)
+    ? (value as string)
+    : 'prensap'
 }
 
 const providerNames: Record<Deployment['provider'], string> = {

@@ -3,6 +3,11 @@ export { applicationNames } from '../catalog/applications'
 const statusLabels: Record<string, string> = {
   ok: 'Operativo',
   healthy: 'Operativo',
+  operational: 'Operativo',
+  up: 'Operativo',
+  down: 'Caído',
+  unknown: 'Sin datos',
+  major_outage: 'Interrupción grave',
   degraded: 'Degradado',
   error: 'Error',
   unconfigured: 'Sin configurar',

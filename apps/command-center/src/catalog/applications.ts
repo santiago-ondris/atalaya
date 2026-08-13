@@ -1,6 +1,7 @@
 export const applications = [
   {
     slug: 'farmami',
+    kind: 'product',
     aliases: [],
     displayName: 'Farmami',
     badge: 'Sentry',
@@ -11,6 +12,7 @@ export const applications = [
   },
   {
     slug: 'wheels_house',
+    kind: 'product',
     aliases: ['wheelshouse'],
     displayName: 'Wheels House',
     badge: 'Sentry',
@@ -21,6 +23,7 @@ export const applications = [
   },
   {
     slug: 'prensap',
+    kind: 'product',
     aliases: ['prensapp'],
     displayName: 'Prensap',
     badge: 'Sentry',
@@ -31,6 +34,7 @@ export const applications = [
   },
   {
     slug: 'notizap',
+    kind: 'product',
     aliases: [],
     displayName: 'Notizap',
     badge: 'App Insights (KQL)',
@@ -41,6 +45,7 @@ export const applications = [
   },
   {
     slug: 'atalaya',
+    kind: 'platform',
     aliases: ['watchman', 'interpreter', 'command_center'],
     displayName: 'Atalaya',
     badge: 'Meta-observabilidad',
@@ -53,6 +58,10 @@ export const applications = [
 
 export type Application = (typeof applications)[number]
 export type ApplicationSlug = Application['slug']
+
+export const productApplications = applications.filter(
+  (application) => application.kind === 'product',
+)
 
 export function resolveApplication(value: string | undefined): Application | undefined {
   if (!value) return undefined
