@@ -936,7 +936,7 @@ func (store *Postgres) PurgeOldEvents(ctx context.Context, retentionDays int) (i
 	res, err := store.pool.Exec(ctx, `
 		DELETE FROM error_events
 		WHERE occurred_at < NOW() - ($1 * INTERVAL '1 day')
-		  AND error_group_id NOT IN (SELECT DISTINCT error_group_id FROM incident_groups)
+		  AND error_group_id NOT IN (SELECT DISTINCT error_group_id FROM incident_error_groups)
 	`, retentionDays)
 	if err != nil {
 		return 0, fmt.Errorf("purge old events: %w", err)
