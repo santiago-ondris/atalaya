@@ -119,14 +119,3 @@ Dirección: "bitácora náutica" — carta de navegación vieja, banderas de se�
 **Firma visual**: los estados de las 4 apps se representan como banderas de señal náutica (formas geométricas simples, no íconos genéricos) — verde = ok, amarillo = atención, rojo ladrillo = crítico.
 
 ---
-
-## 11. Principio de trabajo
-
-Diseño primero, código después. El asistente implementa, prueba y documenta el
-sistema; Santiago conserva las decisiones de producto y arquitectura.
-
-El trabajo mantiene un objetivo educativo explícito: en cada avance el asistente
-explica qué se incorporó, por qué es necesario, qué responsabilidad tiene cada
-archivo y para qué se eligió cada librería o herramienta. Aprender no depende de
-escribir manualmente todo el código, sino de comprender y poder evaluar las
-decisiones y el funcionamiento del sistema.
