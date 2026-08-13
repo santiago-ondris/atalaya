@@ -68,6 +68,10 @@ func (database stubDatabase) ListDeployments(context.Context, string, string, ti
 func (database stubDatabase) OperationsTimeline(context.Context, string, string, time.Time, time.Time, time.Duration) (store.OperationsTimeline, error) {
 	return store.OperationsTimeline{}, database.err
 }
+func (database stubDatabase) GetCostSummary(context.Context, float64) (domain.CostSummary, error) {
+	return domain.CostSummary{}, database.err
+}
+
 
 type recordingDatabase struct {
 	stubDatabase

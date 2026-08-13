@@ -3,6 +3,7 @@ import { api, type IntegrationStatus, type SystemHealth } from '../../api'
 import { ErrorState } from '../../components/feedback/FeedbackState'
 import { SignalFlag } from '../../components/status/SignalFlag'
 import { applicationNames, formatDateTime, formatStatus } from '../../lib/format'
+import { CostCenter } from './CostCenter'
 
 export function SystemPage() {
   const [integrations, setIntegrations] = useState<IntegrationStatus[]>([])
@@ -26,7 +27,7 @@ export function SystemPage() {
         <div>
           <span className="eyebrow">03 / INSTRUMENTOS</span>
           <h1>Estado del sistema</h1>
-          <p>Salud de pollers, fuentes y checkpoints.</p>
+          <p>Salud de pollers, fuentes, presupuestos y costos de LLM.</p>
         </div>
       </header>
 
@@ -39,8 +40,11 @@ export function SystemPage() {
           ))
         )}
       </section>
+
+      <CostCenter />
+
       {health && (
-        <section className="panel">
+        <section className="panel" style={{ marginTop: '1.5rem' }}>
           <header className="panel-heading">
             <h2>Procesos y colas</h2>
             <span>{health.status}</span>
@@ -72,6 +76,7 @@ export function SystemPage() {
     </main>
   )
 }
+
 
 function IntegrationRow({ integration }: { integration: IntegrationStatus }) {
   return (

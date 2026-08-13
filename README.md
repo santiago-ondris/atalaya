@@ -1,43 +1,51 @@
-# Atalaya
+# Atalaya — Centro de Comando y Observabilidad V1
 
-Command center de observabilidad para Farmami, Wheels House, Prensapp y Notizap.
+Atalaya es un centro de comando y observabilidad para monitorear aplicaciones en producción (**Farmami**, **Wheels House**, **Prensap** y **Notizap**).
 
-## Estructura
+Combina ingesta multifuente (Sentry & Azure Application Insights), interpretación estructurada mediante LLM (OpenRouter), alertas inteligentes por Telegram, diagramas de arquitectura interactivos, reportes diarios de sesiones/aperturas, seguimiento de incidentes y deploys, observabilidad de costos, status page pública y meta-observabilidad sobre el propio sistema de monitoreo.
+
+---
+
+## Estructura del Monorepo
 
 ```text
-apps/
-  watchman/         Servicio Go: ingesta, normalización y alertas
-  interpreter/      Servicio Python: interpretación de errores mediante LLM
-  command-center/   Aplicación React + TypeScript
-infra/              Configuración local y de despliegue
+atalaya/
+├── apps/
+│   ├── watchman/         # Go: Núcleo, ingesta, scheduler, API REST y automatizaciones
+│   ├── interpreter/      # Python FastAPI: Interpretación de errores mediante LLM (OpenRouter)
+│   └── command-center/   # React + TypeScript: Interfaz de operación y dashboard
+├── deploy/
+│   └── scripts/          # Scripts de respaldos (backup.sh, restore.sh)
+├── docs/
+│   ├── adr/              # Architecture Decision Records (ADRs 0001 al 0011)
+│   ├── runbooks/         # Runbook operativo de producción
+│   └── sprints/          # Documentación técnica y walkthroughs de los Sprints 0 al 11
+└── compose.yaml          # Entorno dockerizado reproducible
 ```
 
-Cada aplicación es una unidad independiente de build y despliegue. Esta forma de
-monorepo permite configurar un directorio raíz y watch paths distintos para cada
-servicio en Railway y Cloudflare.
+---
 
-## Toolchain
+## Requisitos y Toolchain
 
-- Go 1.26.5
-- Python 3.13.14, administrado con `uv`
-- Node.js 24.19.0 LTS
-- Docker y Docker Compose
+- **Go**: 1.26.5
+- **Python**: 3.13.14 (administrado con `uv` 0.12.2)
+- **Node.js**: 24.19.0 LTS
+- **PostgreSQL**: 18.4
+- **Docker & Docker Compose**
 
-Los manifiestos y lockfiles de cada aplicación mantienen sus dependencias aisladas
-y reproducibles.
+---
 
-## Desarrollo local
+## Desarrollo Local
 
 ```bash
 make up
 ```
 
-El comando construye y levanta PostgreSQL, aplica migraciones y arranca Watchman,
-Interpreter y Command Center. Cuando estén saludables:
+El comando construye y levanta PostgreSQL, aplica migraciones con Goose y arranca los 3 servicios:
 
-- Command Center: <http://localhost:5173>
-- Watchman: <http://localhost:8080/health>
-- Interpreter: <http://localhost:8000/health>
+- **Command Center**: [http://localhost:5173](http://localhost:5173)
+- **Watchman API**: [http://localhost:8080/health](http://localhost:8080/health)
+- **Interpreter API**: [http://localhost:8000/health](http://localhost:8000/health)
 
 Para detener el entorno:
 
@@ -45,50 +53,43 @@ Para detener el entorno:
 make down
 ```
 
-## Importar eventos desde Sentry
+---
 
-Copiar `.env.example` a `.env` y completar `SENTRY_ORG_SLUG`,
-`SENTRY_AUTH_TOKEN` y, si se cambia su ubicación, `SENTRY_CATALOG_PATH`. Los seis
-proyectos se definen en `apps/watchman/config/sentry-integrations.json`; la variable
-histórica `SENTRY_PROJECT_SLUG` ya no se utiliza. El token necesita lectura de
-eventos y `org:read` para consultar las sesiones de Release Health. Al ejecutar
-`make up`, Watchman consulta Sentry de inmediato y luego cada dos minutos.
+## Características Principales
 
-```bash
-curl http://localhost:8080/internal/events
-```
+1. **Ingesta Multifuente**:
+   - Polling cada 2 minutos a **Sentry** (Farmami, Wheels House, Prensap) y **Azure Application Insights** (Notizap).
+   - Sanitización de datos sensibles y checkpoints independientes con deduplicación e idempotencia.
 
-El poller queda desactivado de forma explícita si el token está vacío, por lo que
-el entorno local también puede ejecutarse sin credenciales.
+2. **Interpretación Inteligente (LLM / OpenRouter)**:
+   - Los eventos pasan por la cola durable de PostgreSQL y son procesados por el Interpreter.
+   - Generación automática de resumen en español, explicación técnica, severidad, actionabilidad y sugerencias de resolución.
 
-## Reportes diarios
+3. **Control y Presupuesto de Costos LLM**:
+   - Monitoreo en tiempo real de tokens consumidos (prompt/completion), latencia y costo en USD acumulado por aplicación y por modelo.
+   - Presupuesto mensual configurable (`LLM_MONTHLY_BUDGET_USD`, por defecto `$5.00 USD`).
+   - Alertas por Telegram al alcanzar el 80% o 100% del presupuesto mensual.
 
-Watchman genera a las 20:00 de `America/Argentina/Buenos_Aires` un reporte durable
-con errores y sesiones de las cuatro aplicaciones. Sentry Release Health alimenta
-Farmami, Wheels House y Prensap; `AppPageViews.SessionId` alimenta Notizap. Un fallo
-transitorio de Telegram se reintenta cada 30 minutos, únicamente dentro del mismo
-día. El historial privado está disponible en `GET /api/v1/reports` y en la sección
-Reportes del Command Center.
+4. **Alertas Inteligentes por Telegram**:
+   - Envíos agrupados por aplicación y fingerprint con ventana de deduplicación y rate limiting anti-ruido.
 
-## Incidentes y deploy markers
+5. **Reportes Diarios de Actividad**:
+   - Generación automática a las 20:00 ARG (`America/Argentina/Buenos_Aires`) combinando volumen de excepciones con conteo real de sesiones/aperturas.
 
-La sección Bitácora relaciona ocurrencias con deploys exitosos y permite agrupar
-tipos de error en investigaciones auditables. Los deploys manuales se registran
-desde la interfaz. GitHub Actions usa `POST /hooks/v1/deployments` con
-`Authorization: Bearer $DEPLOYMENT_INGEST_TOKEN`.
+6. **Incidentes y Deploy Markers**:
+   - Bitácora interactiva que superpone despliegues exitosos (Railway, GitHub Actions, Vercel, Cloudflare, Azure) con picos de errores.
+   - Agrupación de errores en incidentes auditables con notas, conclusiones y cambios de estado.
 
-Railway se configura por servicio con una URL de esta forma:
+7. **Status Page Pública y Meta-Observabilidad**:
+   - Página `/status` pública sin información sensible.
+   - Meta-observabilidad interna que detecta pollers detenidos, backlog creciente, degradación del Interpreter y dead man's switch con Healthchecks.io.
 
-```text
-https://ATALAYA/hooks/v1/deployments/railway/APLICACION/COMPONENTE?token=RAILWAY_WEBHOOK_TOKEN
-```
+8. **Hardening, Retención y Respaldos**:
+   - Limpieza automática en segundo plano de eventos mayores a `EVENT_RETENTION_DAYS` (90 días por defecto).
+   - Cabeceras de seguridad HTTP, rate limiters, validación estricta de esquemas y scripts de backup/restore en `deploy/scripts/`.
 
-Atalaya descarta eventos fallidos o que no pertenezcan al ambiente `production`.
+---
 
-## Interpretar eventos
+## Licencia y Uso
 
-Completar `OPENROUTER_API_KEY` en `.env`. Cada evento importado crea un job durable;
-Watchman lo procesa automáticamente y el resultado aparece en
-`GET /internal/events/{id}`. `OPENROUTER_MODEL` permite cambiar el modelo sin tocar
-el código. La guía y el comportamiento ante fallos están documentados en
-`docs/sprints/sprint-02-openrouter-walkthrough.md`.
+Proyecto personal para monitoreo de aplicaciones en producción. Desarrollado con estándares de ingeniería de software y portfolio técnico profesional.

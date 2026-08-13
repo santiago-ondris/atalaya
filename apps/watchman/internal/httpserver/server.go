@@ -41,6 +41,7 @@ type Database interface {
 	SaveDeployment(context.Context, store.DeploymentInput) (store.Deployment, bool, error)
 	ListDeployments(context.Context, string, string, time.Time, time.Time) ([]store.Deployment, error)
 	OperationsTimeline(context.Context, string, string, time.Time, time.Time, time.Duration) (store.OperationsTimeline, error)
+	GetCostSummary(context.Context, float64) (domain.CostSummary, error)
 }
 
 type Server struct {
@@ -52,6 +53,9 @@ type Server struct {
 	cookieSecure     bool
 	deployToken      string
 	railwayToken     string
+	budgetMonitor    interface {
+		CheckBudget(context.Context) (domain.CostSummary, error)
+	}
 	healthProvider   interface {
 		Health(context.Context) (meta.Health, error)
 	}
@@ -88,8 +92,10 @@ func New(address string, database Database, authService *auth.Service, logger *s
 	mux.Handle("POST /api/v1/deployments", server.private(http.HandlerFunc(server.createManualDeployment)))
 	mux.Handle("GET /api/v1/operations/timeline", server.private(http.HandlerFunc(server.operationsTimeline)))
 	mux.Handle("GET /api/v1/system/health", server.private(http.HandlerFunc(server.systemHealth)))
+	mux.Handle("GET /api/v1/system/costs", server.private(http.HandlerFunc(server.systemCosts)))
 	mux.HandleFunc("POST /hooks/v1/deployments", server.ingestDeployment)
 	mux.HandleFunc("POST /hooks/v1/deployments/railway/{application}/{component}", server.ingestRailwayDeployment)
+
 
 	server.httpServer = &http.Server{
 		Addr:              address,
@@ -120,7 +126,34 @@ func (s *Server) systemHealth(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, health)
 }
 
+func (s *Server) ConfigureBudgetMonitor(bm interface {
+	CheckBudget(context.Context) (domain.CostSummary, error)
+}) {
+	s.budgetMonitor = bm
+}
+
+func (s *Server) systemCosts(w http.ResponseWriter, r *http.Request) {
+	if s.budgetMonitor != nil {
+		summary, err := s.budgetMonitor.CheckBudget(r.Context())
+		if err != nil {
+			s.logger.Error("failed to check budget and costs", "error", err)
+			writeJSON(w, 500, map[string]string{"error": "failed to load cost summary"})
+			return
+		}
+		writeJSON(w, 200, summary)
+		return
+	}
+	summary, err := s.database.GetCostSummary(r.Context(), 5.0)
+	if err != nil {
+		s.logger.Error("failed to load cost summary", "error", err)
+		writeJSON(w, 500, map[string]string{"error": "failed to load cost summary"})
+		return
+	}
+	writeJSON(w, 200, summary)
+}
+
 func (s *Server) ConfigureDeploymentHooks(token, railwayToken string) {
+
 	s.deployToken, s.railwayToken = token, railwayToken
 }
 
@@ -383,7 +416,11 @@ func correlation(logger *slog.Logger, next http.Handler) http.Handler {
 		startedAt := time.Now()
 		correlationID := validCorrelationID(r.Header.Get(correlationIDHeader))
 		w.Header().Set(correlationIDHeader, correlationID)
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 		ctx := context.WithValue(r.Context(), correlationIDContextKey{}, correlationID)
+
 		next.ServeHTTP(w, r.WithContext(ctx))
 		path := r.URL.Path
 		if strings.HasPrefix(path, "/hooks/v1/deployments/railway/") {

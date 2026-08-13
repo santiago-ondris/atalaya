@@ -159,3 +159,32 @@ type DailyReport struct {
 	ExpiredAt    *time.Time               `json:"expired_at,omitempty"`
 	Applications []DailyReportApplication `json:"applications"`
 }
+
+type ApplicationCostBreakdown struct {
+	Application      string  `json:"application"`
+	TotalTokens      int64   `json:"total_tokens"`
+	EstimatedCostUSD float64 `json:"estimated_cost_usd"`
+	RequestCount     int64   `json:"request_count"`
+}
+
+type ModelCostBreakdown struct {
+	Model            string  `json:"model"`
+	TotalTokens      int64   `json:"total_tokens"`
+	EstimatedCostUSD float64 `json:"estimated_cost_usd"`
+	RequestCount     int64   `json:"request_count"`
+}
+
+type CostSummary struct {
+	TotalCostUSD      float64                    `json:"total_cost_usd"`
+	MonthlyCostUSD    float64                    `json:"monthly_cost_usd"`
+	MonthlyBudgetUSD  float64                    `json:"monthly_budget_usd"`
+	BudgetUsedPercent float64                    `json:"budget_used_percent"`
+	TotalTokens       int64                      `json:"total_tokens"`
+	InputTokens       int64                      `json:"input_tokens"`
+	OutputTokens      int64                      `json:"output_tokens"`
+	TotalRequests     int64                      `json:"total_requests"`
+	AverageLatencyMS  int64                      `json:"average_latency_ms"`
+	ByApplication     []ApplicationCostBreakdown `json:"by_application"`
+	ByModel           []ModelCostBreakdown       `json:"by_model"`
+}
+

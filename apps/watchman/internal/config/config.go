@@ -29,6 +29,8 @@ type Config struct {
 	Deployments             DeploymentConfig
 	AvailabilityCatalogPath string
 	HealthchecksPingURL     string
+	LLMMonthlyBudgetUSD     float64
+	EventRetentionDays      int
 }
 
 type DeploymentConfig struct{ IngestToken, RailwayToken string }
@@ -209,6 +211,15 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	cfg.LLMMonthlyBudgetUSD, err = floatFromEnv("LLM_MONTHLY_BUDGET_USD", 5.0)
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.EventRetentionDays, err = positiveInt("EVENT_RETENTION_DAYS", 90)
+	if err != nil {
+		return Config{}, err
+	}
+
 	if cfg.Auth.PasswordHash == "" {
 		return Config{}, errors.New("ATALAYA_ADMIN_PASSWORD_HASH is required")
 	}
@@ -358,3 +369,16 @@ func envOrDefault(key, fallback string) string {
 	}
 	return fallback
 }
+
+func floatFromEnv(key string, fallback float64) (float64, error) {
+	raw := os.Getenv(key)
+	if raw == "" {
+		return fallback, nil
+	}
+	val, err := strconv.ParseFloat(raw, 64)
+	if err != nil || val <= 0 {
+		return 0, fmt.Errorf("%s must be a positive float", key)
+	}
+	return val, nil
+}
+

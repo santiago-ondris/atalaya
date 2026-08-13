@@ -263,4 +263,34 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(input),
     }),
+  costs: () => request<CostSummary>('/api/v1/system/costs'),
 }
+
+export interface ApplicationCostBreakdown {
+  application: string
+  total_tokens: number
+  estimated_cost_usd: number
+  request_count: number
+}
+
+export interface ModelCostBreakdown {
+  model: string
+  total_tokens: number
+  estimated_cost_usd: number
+  request_count: number
+}
+
+export interface CostSummary {
+  total_cost_usd: number
+  monthly_cost_usd: number
+  monthly_budget_usd: number
+  budget_used_percent: number
+  total_tokens: number
+  input_tokens: number
+  output_tokens: number
+  total_requests: number
+  average_latency_ms: number
+  by_application: ApplicationCostBreakdown[]
+  by_model: ModelCostBreakdown[]
+}
+

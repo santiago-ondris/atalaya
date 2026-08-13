@@ -838,3 +838,109 @@ func (store *Postgres) ListIntegrations(ctx context.Context) ([]IntegrationStatu
 	}
 	return items, rows.Err()
 }
+
+func (store *Postgres) GetCostSummary(ctx context.Context, monthlyBudgetUSD float64) (domain.CostSummary, error) {
+	var summary domain.CostSummary
+	summary.MonthlyBudgetUSD = monthlyBudgetUSD
+
+	// Global metrics
+	err := store.pool.QueryRow(ctx, `
+		SELECT
+			COALESCE(SUM(estimated_cost_usd), 0),
+			COALESCE(SUM(total_tokens), 0),
+			COALESCE(SUM(input_tokens), 0),
+			COALESCE(SUM(output_tokens), 0),
+			COUNT(*),
+			COALESCE(AVG(latency_ms), 0)::bigint
+		FROM interpretations
+	`).Scan(&summary.TotalCostUSD, &summary.TotalTokens, &summary.InputTokens, &summary.OutputTokens, &summary.TotalRequests, &summary.AverageLatencyMS)
+	if err != nil {
+		return summary, fmt.Errorf("query total cost metrics: %w", err)
+	}
+
+	// Monthly metrics (current month)
+	err = store.pool.QueryRow(ctx, `
+		SELECT COALESCE(SUM(estimated_cost_usd), 0)
+		FROM interpretations
+		WHERE created_at >= date_trunc('month', NOW())
+	`).Scan(&summary.MonthlyCostUSD)
+	if err != nil {
+		return summary, fmt.Errorf("query monthly cost metrics: %w", err)
+	}
+
+	if summary.MonthlyBudgetUSD > 0 {
+		summary.BudgetUsedPercent = (summary.MonthlyCostUSD / summary.MonthlyBudgetUSD) * 100.0
+	}
+
+	// By Application
+	appRows, err := store.pool.Query(ctx, `
+		SELECT
+			a.slug,
+			COALESCE(SUM(i.total_tokens), 0),
+			COALESCE(SUM(i.estimated_cost_usd), 0),
+			COUNT(i.id)
+		FROM applications a
+		LEFT JOIN integrations src ON src.application_id = a.id
+		LEFT JOIN error_events e ON e.integration_id = src.id
+		LEFT JOIN interpretations i ON i.error_event_id = e.id
+		GROUP BY a.slug
+		ORDER BY COALESCE(SUM(i.estimated_cost_usd), 0) DESC
+	`)
+	if err != nil {
+		return summary, fmt.Errorf("query cost by app: %w", err)
+	}
+	defer appRows.Close()
+
+	summary.ByApplication = make([]domain.ApplicationCostBreakdown, 0)
+	for appRows.Next() {
+		var item domain.ApplicationCostBreakdown
+		if err := appRows.Scan(&item.Application, &item.TotalTokens, &item.EstimatedCostUSD, &item.RequestCount); err != nil {
+			return summary, err
+		}
+		summary.ByApplication = append(summary.ByApplication, item)
+	}
+
+	// By Model
+	modelRows, err := store.pool.Query(ctx, `
+		SELECT
+			model,
+			COALESCE(SUM(total_tokens), 0),
+			COALESCE(SUM(estimated_cost_usd), 0),
+			COUNT(id)
+		FROM interpretations
+		WHERE model IS NOT NULL AND model != ''
+		GROUP BY model
+		ORDER BY COALESCE(SUM(estimated_cost_usd), 0) DESC
+	`)
+	if err != nil {
+		return summary, fmt.Errorf("query cost by model: %w", err)
+	}
+	defer modelRows.Close()
+
+	summary.ByModel = make([]domain.ModelCostBreakdown, 0)
+	for modelRows.Next() {
+		var item domain.ModelCostBreakdown
+		if err := modelRows.Scan(&item.Model, &item.TotalTokens, &item.EstimatedCostUSD, &item.RequestCount); err != nil {
+			return summary, err
+		}
+		summary.ByModel = append(summary.ByModel, item)
+	}
+
+	return summary, nil
+}
+
+func (store *Postgres) PurgeOldEvents(ctx context.Context, retentionDays int) (int64, error) {
+	if retentionDays <= 0 {
+		return 0, nil
+	}
+	res, err := store.pool.Exec(ctx, `
+		DELETE FROM error_events
+		WHERE occurred_at < NOW() - ($1 * INTERVAL '1 day')
+		  AND error_group_id NOT IN (SELECT DISTINCT error_group_id FROM incident_groups)
+	`, retentionDays)
+	if err != nil {
+		return 0, fmt.Errorf("purge old events: %w", err)
+	}
+	return res.RowsAffected(), nil
+}
+
