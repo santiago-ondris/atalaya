@@ -145,6 +145,10 @@ Sprint V2.0 completado.
 
 ## Sprint V2.2 — Fundaciones visuales del diorama
 
+### Estado
+
+✅ Completado.
+
 ### Objetivo
 
 Entregar una primera escena desktop cargada de forma diferida, con composición y lenguaje visual aprobables antes de invertir en todos los objetos funcionales.

@@ -1445,7 +1445,6 @@ time {
   background: transparent;
   padding: 8px 10px;
 }
-.lighthouse-page,
 .not-found {
   min-height: 100vh;
   display: grid;
@@ -1455,7 +1454,6 @@ time {
   text-align: center;
   background: var(--background);
 }
-.lighthouse-page h1,
 .not-found h1 {
   margin: 20px 0 8px;
   font: 400 clamp(52px, 8vw, 104px) / 0.92 var(--display);
@@ -1476,22 +1474,77 @@ time {
   background: var(--warning);
   box-shadow: 0 0 36px 14px rgba(255, 224, 0, 0.35);
 }
-.lighthouse-page nav {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
-  margin: 26px 0;
+.lighthouse-page {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background: #071627;
+  color: #fafae4;
 }
-.lighthouse-page nav a {
-  color: var(--text1);
-  border: 1px solid var(--border-visible);
-  padding: 9px 12px;
-  text-decoration: none;
+.lighthouse-canvas {
+  position: absolute;
+  inset: 0;
+}
+.lighthouse-canvas canvas {
+  display: block;
+  touch-action: none;
+}
+.lighthouse-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 28px 32px;
+  background: linear-gradient(180deg, rgba(3, 12, 22, 0.62), transparent 30%);
+}
+.lighthouse-brand {
+  display: grid;
+  gap: 6px;
+  text-align: left;
+}
+.lighthouse-brand .eyebrow,
+.lighthouse-cover .eyebrow {
+  color: #ba8a40;
+}
+.lighthouse-brand strong {
+  font: 400 28px var(--display);
+}
+.lighthouse-cover {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  padding: 32px;
+  text-align: center;
+  background:
+    radial-gradient(circle at 50% 47%, rgba(71, 80, 168, 0.3), transparent 35%), #071627;
+  color: #fafae4;
+}
+.lighthouse-cover h1 {
+  margin: 20px 0 8px;
+  font: 400 clamp(52px, 8vw, 104px) / 0.92 var(--display);
+}
+.lighthouse-cover p {
+  color: rgba(250, 250, 228, 0.72);
+}
+.scene-failure .primary-action {
+  margin-top: 18px;
 }
 .lighthouse-actions {
   display: flex;
   gap: 8px;
+  pointer-events: auto;
+}
+.lighthouse-page .lighthouse-actions button {
+  color: #fafae4;
+  border-color: rgba(250, 250, 228, 0.42);
+  background: rgba(7, 22, 39, 0.62);
+  backdrop-filter: blur(8px);
 }
 .application-page {
   padding-top: clamp(60px, 12vh, 140px);
@@ -1529,6 +1582,18 @@ time {
   .fine-header div {
     flex-wrap: wrap;
     justify-content: flex-end;
+  }
+  .lighthouse-overlay {
+    padding: 18px;
+  }
+  .lighthouse-brand strong {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lighthouse-mark span {
+    box-shadow: 0 0 22px 8px rgba(255, 224, 0, 0.28);
   }
 }
 
