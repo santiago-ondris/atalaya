@@ -1,6 +1,12 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { MemoryRouter, Outlet, Route, Routes } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { LighthouseCover, SceneBoundary } from './LighthousePage'
+
+vi.mock('./scene/LighthouseScene', () => ({
+  LighthouseScene: () => <div data-testid="scene" />,
+}))
+
+import { LighthouseCover, LighthousePage, SceneBoundary } from './LighthousePage'
 
 afterEach(cleanup)
 
@@ -27,5 +33,40 @@ describe('lighthouse loading and recovery', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Abrir vista clásica' }))
     expect(onClassic).toHaveBeenCalledOnce()
     consoleError.mockRestore()
+  })
+
+  it('provides nine equivalent DOM links in narrative order', async () => {
+    render(
+      <MemoryRouter>
+        <Routes>
+          <Route element={<Outlet context={{ logout: vi.fn() }} />}>
+            <Route path="*" element={<LighthousePage />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const navigation = await screen.findByRole('navigation', {
+      name: 'Destinos del faro',
+    })
+    const links = screen.getAllByRole('link')
+    expect(navigation).toContainElement(links[0])
+    expect(links).toHaveLength(9)
+    expect(links.map((link) => link.getAttribute('href'))).toEqual([
+      '/apps/farmami',
+      '/apps/wheels_house',
+      '/apps/prensap',
+      '/apps/notizap',
+      '/apps/atalaya',
+      '/events',
+      '/operations',
+      '/reports',
+      '/system',
+    ])
+
+    fireEvent.focus(screen.getByRole('link', { name: 'Eventos' }))
+    expect(screen.getByText('Eventos', { selector: '.destination-label' })).toBeVisible()
+    fireEvent.blur(screen.getByRole('link', { name: 'Eventos' }))
+    expect(screen.queryByText('Eventos', { selector: '.destination-label' })).toBeNull()
   })
 })

@@ -200,6 +200,10 @@ Sprint V2.0. Puede consumir el modelo de V2.1, pero su validación artística no
 
 ## Sprint V2.3 — Destinos narrativos e interacción
 
+### Estado
+
+✅ Completado.
+
 ### Objetivo
 
 Convertir el diorama en la navegación principal completa de Atalaya.

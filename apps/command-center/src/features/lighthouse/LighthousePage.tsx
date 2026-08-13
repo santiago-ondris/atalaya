@@ -1,7 +1,15 @@
-import { Component, lazy, Suspense, type ErrorInfo, type ReactNode } from 'react'
-import { useNavigate, useOutletContext, useSearchParams } from 'react-router'
+import {
+  Component,
+  lazy,
+  Suspense,
+  useState,
+  type ErrorInfo,
+  type ReactNode,
+} from 'react'
+import { Link, useNavigate, useOutletContext, useSearchParams } from 'react-router'
 import type { AuthOutletContext } from '../../components/layout/AppLayout'
 import { setViewMode } from '../../lib/viewMode'
+import { findDestination, lighthouseDestinations } from './destinations'
 
 const LighthouseScene = lazy(() =>
   import('./scene/LighthouseScene').then((module) => ({
@@ -14,6 +22,7 @@ export function LighthousePage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const still = searchParams.get('scene') === 'still'
+  const [activeDestination, setActiveDestination] = useState<string | null>(null)
 
   function useClassicView() {
     setViewMode('classic')
@@ -24,7 +33,12 @@ export function LighthousePage() {
     <main className="lighthouse-page">
       <SceneBoundary fallback={<SceneFailure onClassic={useClassicView} />}>
         <Suspense fallback={<LighthouseCover message="Preparando el horizonte…" />}>
-          <LighthouseScene still={still} />
+          <LighthouseScene
+            still={still}
+            activeDestination={activeDestination}
+            onDestinationChange={setActiveDestination}
+            onNavigate={(route) => navigate(route)}
+          />
         </Suspense>
       </SceneBoundary>
       <div className="lighthouse-overlay">
@@ -37,6 +51,23 @@ export function LighthousePage() {
           <button onClick={() => void logout()}>Cerrar sesión</button>
         </div>
       </div>
+      <nav className="lighthouse-destinations" aria-label="Destinos del faro">
+        {lighthouseDestinations.map((destination) => (
+          <Link
+            key={destination.id}
+            to={destination.route}
+            onFocus={() => setActiveDestination(destination.id)}
+            onBlur={() => setActiveDestination(null)}
+          >
+            {destination.label}
+          </Link>
+        ))}
+      </nav>
+      {activeDestination && (
+        <div className="destination-label" aria-hidden="true">
+          {findDestination(activeDestination)?.label}
+        </div>
+      )}
     </main>
   )
 }
