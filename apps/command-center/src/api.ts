@@ -293,4 +293,3 @@ export interface CostSummary {
   by_application: ApplicationCostBreakdown[]
   by_model: ModelCostBreakdown[]
 }
-

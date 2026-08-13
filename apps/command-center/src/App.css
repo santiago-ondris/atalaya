@@ -523,7 +523,7 @@
   display: grid;
   gap: 4px;
 }
-.sidebar nav button {
+.sidebar nav a {
   border: 0;
   background: transparent;
   color: rgba(255, 255, 255, 0.78);
@@ -535,8 +535,9 @@
   align-items: center;
   font-size: 13px;
   font-weight: 500;
+  text-decoration: none;
 }
-.sidebar nav button.active {
+.sidebar nav a.active {
   background: #fafae4;
   color: #000;
 }
@@ -951,7 +952,7 @@ time {
     content: 'A';
     font: 36px var(--display);
   }
-  .sidebar nav button {
+  .sidebar nav a {
     font-size: 0;
     justify-content: center;
   }
@@ -1039,7 +1040,7 @@ time {
   .sidebar nav {
     grid-template-columns: repeat(3, 1fr);
   }
-  .sidebar nav button {
+  .sidebar nav a {
     font-size: 10px;
     display: grid;
     gap: 0;
@@ -1176,6 +1177,124 @@ time {
   font-weight: 600;
   font-size: 14px;
   transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.fine-shell {
+  min-height: 100vh;
+}
+.fine-header {
+  min-height: 58px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--border-visible);
+  background: var(--surface1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  font: 600 11px var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.fine-header a {
+  color: var(--text1);
+  text-decoration: none;
+}
+.fine-header div {
+  display: flex;
+  gap: 8px;
+}
+.fine-header button,
+.lighthouse-actions button {
+  border: 1px solid var(--border-visible);
+  background: transparent;
+  padding: 8px 10px;
+}
+.lighthouse-page,
+.not-found {
+  min-height: 100vh;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  padding: 32px;
+  text-align: center;
+  background: var(--background);
+}
+.lighthouse-page h1,
+.not-found h1 {
+  margin: 20px 0 8px;
+  font: 400 clamp(52px, 8vw, 104px) / 0.92 var(--display);
+}
+.lighthouse-mark {
+  width: 96px;
+  height: 120px;
+  margin-top: 32px;
+  border: 2px solid var(--success);
+  border-radius: 50% 50% 12px 12px;
+  display: grid;
+  place-items: center;
+}
+.lighthouse-mark span {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--warning);
+  box-shadow: 0 0 36px 14px rgba(255, 224, 0, 0.35);
+}
+.lighthouse-page nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 26px 0;
+}
+.lighthouse-page nav a {
+  color: var(--text1);
+  border: 1px solid var(--border-visible);
+  padding: 9px 12px;
+  text-decoration: none;
+}
+.lighthouse-actions {
+  display: flex;
+  gap: 8px;
+}
+.application-page {
+  padding-top: clamp(60px, 12vh, 140px);
+}
+.application-page h1 {
+  font: 400 clamp(60px, 10vw, 130px) / 0.9 var(--display);
+  margin: 20px 0;
+}
+.application-page dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 8px 20px;
+  margin: 32px 0;
+  max-width: 600px;
+}
+.application-page dt {
+  font: 600 10px var(--mono);
+  text-transform: uppercase;
+}
+.application-page dd {
+  margin: 0;
+}
+.application-page .primary-action {
+  display: inline-block;
+  text-decoration: none;
+}
+@media (max-width: 620px) {
+  .fine-header {
+    padding: 10px 12px;
+    align-items: flex-start;
+  }
+  .fine-header > span {
+    display: none;
+  }
+  .fine-header div {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
 }
 
 .arch-tab:hover {
@@ -1329,4 +1448,3 @@ time {
     transform: rotate(360deg);
   }
 }
-

@@ -1,16 +1,23 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
+import { Navigate, Outlet, Route, Routes, useNavigate, useParams } from 'react-router'
 import { api, type Overview } from './api'
-import { AppLayout, type View } from './components/layout/AppLayout'
+import { resolveApplication } from './catalog/applications'
 import { ErrorState, LoadingState } from './components/feedback/FeedbackState'
+import { AppLayout } from './components/layout/AppLayout'
+import { FineLayout } from './components/layout/FineLayout'
 import { ArchitecturePage } from './features/architecture/ArchitecturePage'
 import { LoginPage } from './features/auth/LoginPage'
 import { EventDetailPage } from './features/events/EventDetailPage'
 import { EventsPage } from './features/events/EventsPage'
+import { LighthousePage } from './features/lighthouse/LighthousePage'
+import { ApplicationPage } from './features/apps/ApplicationPage'
+import { NotFoundPage } from './features/not-found/NotFoundPage'
 import { OverviewPage } from './features/overview/OverviewPage'
 import { ReportsPage } from './features/reports/ReportsPage'
-import { SystemPage } from './features/system/SystemPage'
-import './App.css'
 import { StatusPage } from './features/status/StatusPage'
+import { SystemPage } from './features/system/SystemPage'
+import { clearViewMode, getInitialViewMode } from './lib/viewMode'
+import './App.css'
 
 const OperationsPage = lazy(() =>
   import('./features/operations/OperationsPage').then((module) => ({
@@ -18,130 +25,137 @@ const OperationsPage = lazy(() =>
   })),
 )
 
-function App() {
-  if (window.location.pathname === '/status') return <StatusPage />
-  return <PrivateApp />
+let sessionCheck: Promise<boolean> | null = null
+function checkSession() {
+  sessionCheck ??= api.session().then(
+    () => true,
+    () => false,
+  )
+  return sessionCheck
 }
 
-function PrivateApp() {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
-  const [activeView, setActiveView] = useState<View>('overview')
-  const [overview, setOverview] = useState<Overview | null>(null)
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
-  const [selectedArchApp, setSelectedArchApp] = useState<string | null>(null)
-  const [overviewError, setOverviewError] = useState('')
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/status" element={<StatusPage />} />
+      <Route element={<AuthGuard />}>
+        <Route path="/" element={<HomeRoute />} />
+        <Route path="/overview" element={<AppLayout />}>
+          <Route index element={<OverviewRoute />} />
+        </Route>
+        <Route element={<ModeLayout />}>
+          <Route path="/apps/:appSlug" element={<ApplicationRoute />} />
+          <Route path="/events" element={<EventsRoute />} />
+          <Route path="/events/:eventId" element={<EventDetailRoute />} />
+          <Route
+            path="/operations"
+            element={
+              <Suspense fallback={<LoadingState />}>
+                <OperationsPage />
+              </Suspense>
+            }
+          />
+          <Route path="/reports" element={<ReportsPage />} />
+          <Route path="/architecture/:appSlug?" element={<ArchitectureRoute />} />
+          <Route path="/system" element={<SystemPage />} />
+        </Route>
+      </Route>
+      <Route path="*" element={<NotFoundPage />} />
+    </Routes>
+  )
+}
+
+function AuthGuard() {
+  const [authenticated, setAuthenticated] = useState<boolean | null>(null)
 
   useEffect(() => {
-    api
-      .session()
-      .then(() => setIsAuthenticated(true))
-      .catch(() => setIsAuthenticated(false))
+    void checkSession().then(setAuthenticated)
   }, [])
 
-  useEffect(() => {
-    if (!isAuthenticated) return
+  if (authenticated === null) return <LoadingState />
+  if (!authenticated) return <LoginPage onSuccess={() => setAuthenticated(true)} />
 
+  async function logout() {
+    clearViewMode()
+    await api.logout().catch(() => undefined)
+    sessionCheck = Promise.resolve(false)
+    setAuthenticated(false)
+  }
+
+  return <Outlet context={{ logout }} />
+}
+
+function ModeLayout() {
+  return getInitialViewMode() === 'classic' ? <AppLayout /> : <FineLayout />
+}
+
+function HomeRoute() {
+  return getInitialViewMode() === 'classic' ? (
+    <Navigate to="/overview" replace />
+  ) : (
+    <LighthousePage />
+  )
+}
+
+function OverviewRoute() {
+  const navigate = useNavigate()
+  const [overview, setOverview] = useState<Overview | null>(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
     api
       .overview()
       .then(setOverview)
-      .catch((error: Error) => {
-        if (error.message === 'unauthorized') {
-          setIsAuthenticated(false)
-          return
-        }
+      .catch(() => setError('No se pudo cargar el estado general.'))
+  }, [])
 
-        setOverviewError('No se pudo cargar el estado general.')
-      })
-  }, [isAuthenticated])
-
-  if (isAuthenticated === null) {
-    return <LoadingState />
-  }
-
-  if (!isAuthenticated) {
-    return <LoginPage onSuccess={() => setIsAuthenticated(true)} />
-  }
-
-  async function handleLogout() {
-    await api.logout()
-    setIsAuthenticated(false)
-  }
-
-  function handleNavigation(view: View) {
-    setActiveView(view)
-    setSelectedEventId(null)
-  }
-
-  function handleOpenArchitecture(appSlug: string) {
-    setSelectedArchApp(appSlug)
-    setActiveView('architecture')
-    setSelectedEventId(null)
-  }
-
-  function closeEventDetail() {
-    setSelectedEventId(null)
-    setActiveView('events')
-  }
-
-  return (
-    <AppLayout view={activeView} onNavigate={handleNavigation} onLogout={handleLogout}>
-      {renderContent()}
-    </AppLayout>
-  )
-
-  function renderContent() {
-    if (selectedEventId) {
-      return <EventDetailPage eventId={selectedEventId} onBack={closeEventDetail} />
-    }
-
-    if (activeView === 'events') {
-      return <EventsPage onSelectEvent={setSelectedEventId} />
-    }
-
-    if (activeView === 'architecture') {
-      return <ArchitecturePage initialAppSlug={selectedArchApp} />
-    }
-
-    if (activeView === 'system') {
-      return <SystemPage />
-    }
-
-    if (activeView === 'reports') {
-      return <ReportsPage />
-    }
-
-    if (activeView === 'operations') {
-      return (
-        <Suspense fallback={<LoadingState />}>
-          <OperationsPage />
-        </Suspense>
-      )
-    }
-
-    if (overviewError) {
-      return (
-        <main className="page">
-          <ErrorState message={overviewError} />
-        </main>
-      )
-    }
-
-    if (!overview) {
-      return (
-        <main className="page">
-          <LoadingState />
-        </main>
-      )
-    }
-
+  if (error)
     return (
-      <OverviewPage
-        onSelectArchitecture={handleOpenArchitecture}
-        onSelectEvent={setSelectedEventId}
-        overview={overview}
-      />
+      <main className="page">
+        <ErrorState message={error} />
+      </main>
     )
-  }
+  if (!overview)
+    return (
+      <main className="page">
+        <LoadingState />
+      </main>
+    )
+  return (
+    <OverviewPage
+      overview={overview}
+      onSelectEvent={(id) => navigate(`/events/${id}`)}
+      onSelectArchitecture={(slug) => navigate(`/architecture/${slug}`)}
+    />
+  )
 }
 
-export default App
+function EventsRoute() {
+  const navigate = useNavigate()
+  return <EventsPage onSelectEvent={(id) => navigate(`/events/${id}`)} />
+}
+
+function EventDetailRoute() {
+  const navigate = useNavigate()
+  const { eventId } = useParams()
+  return <EventDetailPage eventId={eventId!} onBack={() => navigate('/events')} />
+}
+
+function ArchitectureRoute() {
+  const { appSlug } = useParams()
+  if (!appSlug) return <Navigate to="/architecture/farmami" replace />
+  const application = resolveApplication(appSlug)
+  if (!application) return <NotFoundPage />
+  if (application.slug !== appSlug.toLowerCase())
+    return <Navigate to={`/architecture/${application.slug}`} replace />
+  return <ArchitecturePage app={application} />
+}
+
+function ApplicationRoute() {
+  const { appSlug } = useParams()
+  const application = resolveApplication(appSlug)
+  if (!application) return <NotFoundPage />
+  if (application.slug !== appSlug?.toLowerCase())
+    return <Navigate to={`/apps/${application.slug}`} replace />
+  return <ApplicationPage app={application} />
+}

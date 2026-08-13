@@ -1,9 +1,4 @@
-export const applicationNames: Record<string, string> = {
-  farmami: 'Farmami',
-  wheels_house: 'Wheels House',
-  prensap: 'Prensap',
-  notizap: 'Notizap',
-}
+export { applicationNames } from '../catalog/applications'
 
 const statusLabels: Record<string, string> = {
   ok: 'Operativo',

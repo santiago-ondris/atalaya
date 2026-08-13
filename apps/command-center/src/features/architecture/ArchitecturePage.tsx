@@ -1,97 +1,14 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { NavLink } from 'react-router'
+import { applications, type Application } from '../../catalog/applications'
 
-export interface ArchitectureApp {
-  slug: string
-  aliases: string[]
-  displayName: string
-  badge: string
-  stack: string
-  deploy: string
-  htmlUrl: string
-  brandColor: string
-}
-
-export const architectureApps: ArchitectureApp[] = [
-  {
-    slug: 'farmami',
-    aliases: ['farmami'],
-    displayName: 'Farmami',
-    badge: 'Sentry',
-    stack: 'Vue / Laravel / MySQL',
-    deploy: 'Railway + Vercel',
-    htmlUrl: '/diagrams/arquitectura-farmami.html',
-    brandColor: '#D85A30',
-  },
-  {
-    slug: 'notizap',
-    aliases: ['notizap'],
-    displayName: 'Notizap',
-    badge: 'App Insights (KQL)',
-    stack: 'Node.js / Express / Azure',
-    deploy: 'Azure Web App + GitHub Actions',
-    htmlUrl: '/diagrams/arquitectura-notizap.html',
-    brandColor: '#B695BF',
-  },
-  {
-    slug: 'prensap',
-    aliases: ['prensap', 'prensapp'],
-    displayName: 'Prensapp',
-    badge: 'Sentry',
-    stack: 'Next.js / PostgreSQL / Cloudflare',
-    deploy: 'Cloudflare Pages + Railway',
-    htmlUrl: '/diagrams/arquitectura-prensap.html',
-    brandColor: '#D7FF3F',
-  },
-  {
-    slug: 'wheels_house',
-    aliases: ['wheels_house', 'wheelshouse'],
-    displayName: 'Wheels House',
-    badge: 'Sentry',
-    stack: 'React / Node.js / PostgreSQL',
-    deploy: 'Railway + Vercel',
-    htmlUrl: '/diagrams/arquitectura-wheelshouse.html',
-    brandColor: '#BF247A',
-  },
-  {
-    slug: 'atalaya',
-    aliases: ['atalaya', 'watchman', 'interpreter', 'command_center'],
-    displayName: 'Atalaya',
-    badge: 'Meta-observabilidad',
-    stack: 'Go / Python / React / PostgreSQL',
-    deploy: 'Railway + Cloudflare Pages',
-    htmlUrl: '/diagrams/arquitectura-atalaya.html',
-    brandColor: '#4750A8',
-  },
-]
-
-interface ArchitecturePageProps {
-  initialAppSlug?: string | null
-}
-
-export function ArchitecturePage({ initialAppSlug }: ArchitecturePageProps) {
-  const findMatchingApp = (slug?: string | null): ArchitectureApp => {
-    if (!slug) return architectureApps[0]
-    const normalized = slug.toLowerCase()
-    return (
-      architectureApps.find(
-        (app) => app.slug === normalized || app.aliases.includes(normalized),
-      ) ?? architectureApps[0]
-    )
-  }
-
-  const [activeApp, setActiveApp] = useState<ArchitectureApp>(() =>
-    findMatchingApp(initialAppSlug),
-  )
+export function ArchitecturePage({ app: activeApp }: { app: Application }) {
   const [isLoading, setIsLoading] = useState<boolean>(true)
   const [reloadKey, setReloadKey] = useState<number>(0)
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  function handleSelectApp(app: ArchitectureApp) {
-    if (app.slug === activeApp.slug) return
-    setActiveApp(app)
-    setIsLoading(true)
-  }
+  useEffect(() => setIsLoading(true), [activeApp.slug])
 
   function handleReload() {
     setIsLoading(true)
@@ -139,22 +56,26 @@ export function ArchitecturePage({ initialAppSlug }: ArchitecturePageProps) {
             title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
             type="button"
           >
-            <i className={`ti ${isFullscreen ? 'ti-arrows-minimize' : 'ti-arrows-maximize'}`} />
+            <i
+              className={`ti ${isFullscreen ? 'ti-arrows-minimize' : 'ti-arrows-maximize'}`}
+            />
             <span>{isFullscreen ? 'Restaurar' : 'Pantalla completa'}</span>
           </button>
         </div>
       </header>
 
       {/* Navigation tabs for apps */}
-      <nav aria-label="Selección de arquitectura por aplicación" className="architecture-tabs">
-        {architectureApps.map((app) => {
+      <nav
+        aria-label="Selección de arquitectura por aplicación"
+        className="architecture-tabs"
+      >
+        {applications.map((app) => {
           const isSelected = app.slug === activeApp.slug
           return (
-            <button
+            <NavLink
               className={`arch-tab ${isSelected ? 'active' : ''}`}
               key={app.slug}
-              onClick={() => handleSelectApp(app)}
-              type="button"
+              to={`/architecture/${app.slug}`}
             >
               <span
                 className="arch-tab-color-dot"
@@ -162,7 +83,7 @@ export function ArchitecturePage({ initialAppSlug }: ArchitecturePageProps) {
               />
               <span className="arch-tab-name">{app.displayName}</span>
               <span className="arch-tab-badge">{app.badge}</span>
-            </button>
+            </NavLink>
           )
         })}
       </nav>

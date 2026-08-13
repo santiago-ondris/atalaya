@@ -1,6 +1,16 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { ArchitecturePage } from './ArchitecturePage'
+import { MemoryRouter } from 'react-router'
+import { resolveApplication } from '../../catalog/applications'
+
+function renderArchitecture(slug: string) {
+  return render(
+    <MemoryRouter>
+      <ArchitecturePage app={resolveApplication(slug)!} />
+    </MemoryRouter>,
+  )
+}
 
 describe('ArchitecturePage', () => {
   afterEach(() => {
@@ -8,7 +18,7 @@ describe('ArchitecturePage', () => {
   })
 
   it('renders architecture page with tabs and initial app selected', () => {
-    render(<ArchitecturePage initialAppSlug="farmami" />)
+    renderArchitecture('farmami')
 
     expect(screen.getByText('Diagramas de sistema')).toBeInTheDocument()
     expect(screen.getAllByText('Farmami').length).toBeGreaterThan(0)
@@ -18,20 +28,17 @@ describe('ArchitecturePage', () => {
     ).toHaveAttribute('src', '/diagrams/arquitectura-farmami.html')
   })
 
-  it('switches active diagram when tab is clicked', () => {
-    render(<ArchitecturePage initialAppSlug="farmami" />)
+  it('links every diagram tab to its canonical route', () => {
+    renderArchitecture('farmami')
 
-    const notizapTab = screen.getByRole('button', { name: /notizap/i })
-    fireEvent.click(notizapTab)
-
-    expect(screen.getByText('Node.js / Express / Azure')).toBeInTheDocument()
-    expect(
-      screen.getByTitle('Diagrama interactivo de arquitectura - Notizap'),
-    ).toHaveAttribute('src', '/diagrams/arquitectura-notizap.html')
+    expect(screen.getByRole('link', { name: /notizap/i })).toHaveAttribute(
+      'href',
+      '/architecture/notizap',
+    )
   })
 
   it('toggles fullscreen mode when button is clicked', () => {
-    render(<ArchitecturePage initialAppSlug="prensap" />)
+    renderArchitecture('prensap')
 
     const fullscreenBtn = screen.getByTitle('Pantalla completa')
     fireEvent.click(fullscreenBtn)

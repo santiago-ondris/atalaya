@@ -15,7 +15,12 @@ export function CostCenter() {
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <div className="panel"><p style={{ padding: '1rem' }}>Cargando consumo de LLM...</p></div>
+  if (loading)
+    return (
+      <div className="panel">
+        <p style={{ padding: '1rem' }}>Cargando consumo de LLM...</p>
+      </div>
+    )
   if (error || !costs) return null
 
   const usedPercent = Math.min(costs.budget_used_percent, 100)
@@ -27,7 +32,9 @@ export function CostCenter() {
       <header className="panel-heading">
         <div>
           <h2>Consumo de LLM (OpenRouter)</h2>
-          <small style={{ opacity: 0.8 }}>Monitoreo de tokens, presupuestos y costo acumulado</small>
+          <small style={{ opacity: 0.8 }}>
+            Monitoreo de tokens, presupuestos y costo acumulado
+          </small>
         </div>
         <span
           className="badge"
@@ -46,11 +53,25 @@ export function CostCenter() {
 
       {/* Monthly Budget Bar */}
       <div style={{ padding: '1rem', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            marginBottom: '0.5rem',
+            fontSize: '0.9rem',
+          }}
+        >
           <span>Presupuesto Mensual (${costs.monthly_budget_usd.toFixed(2)} USD)</span>
           <strong>${costs.monthly_cost_usd.toFixed(4)} USD consumidos</strong>
         </div>
-        <div style={{ height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
+        <div
+          style={{
+            height: '8px',
+            background: 'rgba(255,255,255,0.1)',
+            borderRadius: '4px',
+            overflow: 'hidden',
+          }}
+        >
           <div
             style={{
               height: '100%',
@@ -84,7 +105,8 @@ export function CostCenter() {
             {costs.total_tokens.toLocaleString()}
           </div>
           <small style={{ fontSize: '0.75rem', opacity: 0.7 }}>
-            {costs.input_tokens.toLocaleString()} in / {costs.output_tokens.toLocaleString()} out
+            {costs.input_tokens.toLocaleString()} in /{' '}
+            {costs.output_tokens.toLocaleString()} out
           </small>
         </div>
         <div>
@@ -103,56 +125,94 @@ export function CostCenter() {
 
       {/* Breakdown tables */}
       <div style={{ padding: '1rem' }}>
-        <h3 style={{ fontSize: '1rem', marginBottom: '0.75rem' }}>Desglose por Aplicación</h3>
+        <h3 style={{ fontSize: '1rem', marginBottom: '0.75rem' }}>
+          Desglose por Aplicación
+        </h3>
         {costs.by_application.length === 0 ? (
-          <p style={{ opacity: 0.7, fontSize: '0.9rem' }}>Sin consumo registrado por aplicación.</p>
+          <p style={{ opacity: 0.7, fontSize: '0.9rem' }}>
+            Sin consumo registrado por aplicación.
+          </p>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+          <table
+            style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}
+          >
             <thead>
-              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', textAlign: 'left' }}>
+              <tr
+                style={{
+                  borderBottom: '1px solid rgba(255,255,255,0.1)',
+                  textAlign: 'left',
+                }}
+              >
                 <th style={{ padding: '0.5rem' }}>Aplicación</th>
                 <th style={{ padding: '0.5rem' }}>Tokens</th>
                 <th style={{ padding: '0.5rem' }}>Solicitudes</th>
-                <th style={{ padding: '0.5rem', textAlign: 'right' }}>Costo Est. (USD)</th>
+                <th style={{ padding: '0.5rem', textAlign: 'right' }}>
+                  Costo Est. (USD)
+                </th>
               </tr>
             </thead>
             <tbody>
               {costs.by_application.map((app) => (
-                <tr key={app.application} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <tr
+                  key={app.application}
+                  style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                >
                   <td style={{ padding: '0.5rem' }}>
-                    <strong>{applicationNames[app.application] || app.application}</strong>
+                    <strong>
+                      {applicationNames[app.application] || app.application}
+                    </strong>
                   </td>
-                  <td style={{ padding: '0.5rem' }}>{app.total_tokens.toLocaleString()}</td>
+                  <td style={{ padding: '0.5rem' }}>
+                    {app.total_tokens.toLocaleString()}
+                  </td>
                   <td style={{ padding: '0.5rem' }}>{app.request_count}</td>
-                  <td style={{ padding: '0.5rem', textAlign: 'right' }}>${app.estimated_cost_usd.toFixed(4)}</td>
+                  <td style={{ padding: '0.5rem', textAlign: 'right' }}>
+                    ${app.estimated_cost_usd.toFixed(4)}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
 
-        <h3 style={{ fontSize: '1rem', marginTop: '1.5rem', marginBottom: '0.75rem' }}>Desglose por Modelo</h3>
+        <h3 style={{ fontSize: '1rem', marginTop: '1.5rem', marginBottom: '0.75rem' }}>
+          Desglose por Modelo
+        </h3>
         {costs.by_model.length === 0 ? (
           <p style={{ opacity: 0.7, fontSize: '0.9rem' }}>Sin modelos registrados.</p>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+          <table
+            style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}
+          >
             <thead>
-              <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', textAlign: 'left' }}>
+              <tr
+                style={{
+                  borderBottom: '1px solid rgba(255,255,255,0.1)',
+                  textAlign: 'left',
+                }}
+              >
                 <th style={{ padding: '0.5rem' }}>Modelo</th>
                 <th style={{ padding: '0.5rem' }}>Tokens</th>
                 <th style={{ padding: '0.5rem' }}>Solicitudes</th>
-                <th style={{ padding: '0.5rem', textAlign: 'right' }}>Costo Est. (USD)</th>
+                <th style={{ padding: '0.5rem', textAlign: 'right' }}>
+                  Costo Est. (USD)
+                </th>
               </tr>
             </thead>
             <tbody>
               {costs.by_model.map((m) => (
-                <tr key={m.model} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <tr
+                  key={m.model}
+                  style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}
+                >
                   <td style={{ padding: '0.5rem' }}>
                     <code>{m.model}</code>
                   </td>
                   <td style={{ padding: '0.5rem' }}>{m.total_tokens.toLocaleString()}</td>
                   <td style={{ padding: '0.5rem' }}>{m.request_count}</td>
-                  <td style={{ padding: '0.5rem', textAlign: 'right' }}>${m.estimated_cost_usd.toFixed(4)}</td>
+                  <td style={{ padding: '0.5rem', textAlign: 'right' }}>
+                    ${m.estimated_cost_usd.toFixed(4)}
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -77,7 +77,6 @@ export function SystemPage() {
   )
 }
 
-
 function IntegrationRow({ integration }: { integration: IntegrationStatus }) {
   return (
     <div className="integration-row">
