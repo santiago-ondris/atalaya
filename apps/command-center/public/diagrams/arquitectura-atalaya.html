@@ -1,0 +1,1480 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Atalaya — Arquitectura</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Instrument+Serif&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --background:#f1f0e8;
+    --surface1:#fafae4;
+    --surface2:#dedccf;
+    --surface3:#b9b7aa;
+    --border:#dedccf;
+    --border-visible:#ba8a40;
+    --text1:#000;
+    --text2:#51534e;
+    --text3:#6b6c65;
+    --text4:#8b8a80;
+    --accent:#4750a8;
+    --accent-subtle:#eef2ff;
+    --accent-400:#7079c2;
+    --accent-700:#313979;
+    --success:#005838;
+    --success-bg:#e7f3ed;
+    --warning:#ffe000;
+    --warning-bg:#fff9cc;
+    --error:#c1432e;
+    --error-bg:#fbe9e4;
+    --brass:#ba8a40;
+    --brass-bg:#f7f0e4;
+    --ink:#171b18;
+
+    --display:'Instrument Serif', Georgia, serif;
+    --body:'Public Sans', Arial, sans-serif;
+    --mono:'IBM Plex Mono', Consolas, monospace;
+
+    --radius-element:2px;
+    --radius-control:4px;
+    --radius-component:6px;
+    --ease:cubic-bezier(.2,.8,.2,1);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--background);
+    color:var(--text1);
+    font-family:var(--body);
+    font-size:15px;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+
+  /* ============ Header ============ */
+  header.topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    padding:12px 20px;
+    background:var(--surface1);
+    border-bottom:1px solid var(--border);
+    flex-wrap:wrap;
+    z-index:20;
+  }
+  .brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;}
+  .brand h1{
+    font-family:var(--display);
+    font-size:26px;
+    line-height:1;
+    margin:0;
+    font-weight:400;
+    letter-spacing:-.01em;
+  }
+  .brand .tag{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--text2);
+    border:1px solid var(--border-visible);
+    padding:3px 8px;
+    border-radius:var(--radius-element);
+    white-space:nowrap;
+  }
+  .stats{
+    font-family:var(--mono);
+    font-size:11.5px;
+    color:var(--text3);
+    white-space:nowrap;
+  }
+  .toolbar{display:flex;align-items:center;gap:6px;}
+  .toolbar button{
+    background:var(--surface1);
+    border:1px solid var(--border-visible);
+    color:var(--text1);
+    height:30px;
+    min-width:30px;
+    padding:0 8px;
+    border-radius:var(--radius-control);
+    font-size:14px;
+    font-family:var(--mono);
+    cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:background 120ms var(--ease), color 120ms var(--ease);
+  }
+  .toolbar button:hover{background:var(--accent-subtle);color:var(--accent);}
+  .toolbar .divider{width:1px;height:20px;background:var(--border);margin:0 4px;}
+  .toolbar .zoom-level{
+    font-family:var(--mono);font-size:11px;color:var(--text3);
+    width:42px;text-align:center;
+  }
+
+  /* ============ Layout ============ */
+  .app{flex:1;display:flex;min-height:0;}
+
+  .diagram-pane{
+    flex:1;
+    position:relative;
+    overflow:hidden;
+    background-color:var(--background);
+    background-image:
+      linear-gradient(rgba(186,138,64,.10) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(186,138,64,.10) 1px, transparent 1px);
+    background-size:28px 28px;
+    cursor:grab;
+  }
+  .diagram-pane.panning{cursor:grabbing;}
+  .diagram-pane svg{display:block;width:100%;height:100%;}
+
+  .active-flow-pill{
+    position:absolute;
+    top:14px;left:50%;
+    transform:translateX(-50%);
+    background:var(--surface1);
+    border:1px solid var(--border-visible);
+    color:var(--text1);
+    padding:6px 8px 6px 14px;
+    border-radius:var(--radius-control);
+    font-size:13px;
+    display:none;
+    align-items:center;
+    gap:10px;
+    z-index:15;
+    max-width:min(90%,620px);
+  }
+  .active-flow-pill.show{display:flex;}
+  .active-flow-pill .lbl{
+    font-family:var(--mono);font-size:10px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--text3);
+  }
+  .active-flow-pill b{font-weight:600;}
+  .active-flow-pill button{
+    background:none;border:1px solid transparent;color:var(--text3);cursor:pointer;
+    font-size:14px;line-height:1;padding:2px 6px;border-radius:var(--radius-element);
+    font-family:var(--mono);
+  }
+  .active-flow-pill button:hover{color:var(--error);border-color:var(--border);}
+
+  .legend{
+    position:absolute;
+    bottom:14px;left:14px;
+    background:var(--surface1);
+    border:1px solid var(--border);
+    border-radius:var(--radius-component);
+    padding:9px 12px;
+    font-size:11px;
+    z-index:15;
+    max-width:250px;
+  }
+  .legend.collapsed .legend-body{display:none;}
+  .legend-head{display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;user-select:none;}
+  .legend-head span{
+    color:var(--text3);font-family:var(--mono);letter-spacing:.12em;
+    text-transform:uppercase;font-size:10px;
+  }
+  .legend-head .chev{color:var(--text4);transition:transform 120ms var(--ease);font-size:11px;}
+  .legend.collapsed .chev{transform:rotate(-90deg);}
+  .legend-body{margin-top:9px;display:flex;flex-direction:column;gap:5px;}
+  .legend-row{display:flex;align-items:center;gap:8px;color:var(--text2);}
+  .legend-swatch{width:11px;height:11px;border-radius:var(--radius-element);flex-shrink:0;border:1px solid rgba(0,0,0,.12);}
+  .legend-note{
+    margin-top:9px;padding-top:9px;border-top:1px solid var(--border);
+    color:var(--text3);line-height:1.5;font-size:10.5px;
+  }
+
+  /* ============ Flow panel ============ */
+  .flow-panel{
+    width:380px;
+    flex-shrink:0;
+    border-left:1px solid var(--border);
+    background:var(--surface1);
+    overflow-y:auto;
+    padding:16px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .flow-panel .eyebrow{
+    font-family:var(--mono);font-size:11px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--text3);
+  }
+  .flow-panel h2{
+    font-family:var(--display);
+    font-size:24px;
+    font-weight:400;
+    margin:2px 0 4px;
+    letter-spacing:-.01em;
+  }
+  .flow-panel .lede{color:var(--text2);font-size:13px;line-height:1.5;margin:0 0 6px;}
+
+  .flow-card{
+    border:1px solid var(--border);
+    border-left:3px solid var(--flow-color, var(--border-visible));
+    background:var(--surface1);
+    border-radius:var(--radius-component);
+    padding:10px 12px;
+    cursor:pointer;
+    transition:background 120ms var(--ease), border-color 120ms var(--ease);
+  }
+  .flow-card:hover{background:var(--background);}
+  .flow-card.active{background:var(--accent-subtle);border-color:var(--accent);border-left-color:var(--flow-color, var(--accent));}
+  .flow-card .row{display:flex;align-items:center;gap:10px;}
+  .flow-badge{
+    width:22px;height:22px;border-radius:var(--radius-element);
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-size:11px;font-weight:600;
+    color:#fff;flex-shrink:0;
+  }
+  .flow-card .title{font-size:13.5px;font-weight:600;line-height:1.25;}
+  .flow-card .desc{font-size:12px;color:var(--text2);margin-top:6px;line-height:1.5;}
+  .flow-card .steps{
+    margin-top:10px;padding-top:10px;border-top:1px solid var(--border);
+    display:none;flex-direction:column;gap:6px;
+  }
+  .flow-card.active .steps{display:flex;}
+  .step-line{display:flex;gap:8px;font-size:11.5px;color:var(--text2);align-items:flex-start;line-height:1.45;}
+  .step-num{
+    font-family:var(--mono);font-size:10px;color:#fff;
+    background:var(--text2);border-radius:var(--radius-element);min-width:17px;height:16px;
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;font-weight:600;
+  }
+  .flow-card.active .step-num{background:var(--flow-color, var(--accent));}
+  .step-line b{color:var(--text1);font-weight:600;}
+  .step-line code{font-family:var(--mono);font-size:10.5px;color:var(--accent-700);}
+
+  .flow-panel-footer{
+    margin-top:auto;padding-top:12px;border-top:1px solid var(--border);
+    font-size:11px;color:var(--text3);line-height:1.6;
+  }
+  .flow-panel-footer code{font-family:var(--mono);color:var(--accent-700);}
+
+  /* ============ Tooltip ============ */
+  #tooltip{
+    position:fixed;
+    pointer-events:none;
+    background:var(--surface1);
+    border:1px solid var(--border-visible);
+    border-radius:var(--radius-component);
+    padding:10px 12px;
+    max-width:330px;
+    font-size:12px;
+    line-height:1.5;
+    color:var(--text1);
+    box-shadow:0 8px 24px rgba(23,27,24,.14);
+    z-index:100;
+    opacity:0;
+    transform:translateY(3px);
+    transition:opacity 120ms var(--ease), transform 120ms var(--ease);
+  }
+  #tooltip.show{opacity:1;transform:translateY(0);}
+  #tooltip .tt-kind{
+    font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--text3);display:block;margin-bottom:3px;
+  }
+  #tooltip .tt-title{font-weight:600;font-size:13px;margin-bottom:3px;}
+  #tooltip .tt-path{font-family:var(--mono);font-size:10.5px;color:var(--accent-700);margin-bottom:6px;word-break:break-all;}
+  #tooltip .tt-desc{color:var(--text2);}
+  #tooltip .tt-pin{margin-top:7px;font-size:10px;color:var(--text4);font-style:italic;}
+
+  /* ============ SVG ============ */
+  .lane-title{
+    font-family:var(--mono);font-size:15px;letter-spacing:.16em;
+    text-transform:uppercase;fill:var(--text4);
+  }
+  .row-label{
+    font-family:var(--mono);font-size:12px;letter-spacing:.14em;
+    text-transform:uppercase;fill:var(--text4);
+  }
+  .lane-frame{fill:none;stroke:var(--surface2);stroke-width:1.5;stroke-dasharray:6 6;}
+
+  .node{cursor:pointer;}
+  .node rect.body{
+    stroke-width:1.2;
+    transition:opacity 160ms var(--ease), stroke-width 160ms var(--ease);
+  }
+  .node rect.bar{stroke:none;}
+  .node text{pointer-events:none;font-family:var(--body);}
+  .node .l-title{font-weight:600;fill:var(--text1);}
+  .node .l-title2{fill:var(--text2);}
+  .node .l-sub{font-family:var(--mono);fill:currentColor;opacity:.95;}
+  .node .l-mono{font-family:var(--mono);fill:var(--text2);}
+  .node.dimmed{opacity:.14;}
+  .node.active-node rect.body{stroke-width:2.4;}
+
+  .step-badge circle{stroke:var(--surface1);stroke-width:2;}
+  .step-badge text{font-family:var(--mono);font-weight:600;fill:#fff;}
+
+  .n-ext        rect.body{fill:#f4f3ec;stroke:#6b6c65;} .n-ext{color:#6b6c65;}
+  .n-ext        rect.bar{fill:#6b6c65;}
+  .n-ingest     rect.body{fill:#f7f0e4;stroke:#ba8a40;} .n-ingest{color:#8a6520;}
+  .n-ingest     rect.bar{fill:#ba8a40;}
+  .n-core       rect.body{fill:#eef2ff;stroke:#313979;} .n-core{color:#313979;}
+  .n-core       rect.bar{fill:#313979;}
+  .n-db         rect.body{fill:#fafae4;stroke:#171b18;} .n-db{color:#171b18;}
+  .n-db         rect.bar{fill:#171b18;}
+  .n-worker     rect.body{fill:#e7f3ed;stroke:#005838;} .n-worker{color:#005838;}
+  .n-worker     rect.bar{fill:#005838;}
+  .n-llm        rect.body{fill:#fbe9e4;stroke:#c1432e;} .n-llm{color:#c1432e;}
+  .n-llm        rect.bar{fill:#c1432e;}
+  .n-api        rect.body{fill:#eef2ff;stroke:#4750a8;} .n-api{color:#4750a8;}
+  .n-api        rect.bar{fill:#4750a8;}
+  .n-ui         rect.body{fill:#f6f7ff;stroke:#7079c2;} .n-ui{color:#5a63b0;}
+  .n-ui         rect.bar{fill:#7079c2;}
+
+  .edge-hit{fill:none;stroke:transparent;stroke-width:16;cursor:pointer;}
+  .edge-line{
+    fill:none;stroke:#b9b7aa;stroke-width:1.3;
+    transition:opacity 160ms var(--ease), stroke 160ms var(--ease), stroke-width 160ms var(--ease);
+  }
+  .edge-line.dashed-base{stroke-dasharray:4 4;}
+  .edge-line.dimmed{opacity:.10;}
+  .edge-line.active-edge{stroke:var(--accent);stroke-width:2.4;opacity:1;stroke-dasharray:7 6;animation:dashmove 1.1s linear infinite;}
+  @keyframes dashmove{to{stroke-dashoffset:-26;}}
+  .edge-label-bg{fill:#fafae4;stroke:#dedccf;stroke-width:1;}
+  .edge-label{font-family:var(--mono);font-size:10px;fill:var(--accent-700);}
+
+  /* ============ Responsive ============ */
+  @media (max-width:1000px){
+    .app{flex-direction:column;}
+    .flow-panel{width:100%;height:46vh;border-left:none;border-top:1px solid var(--border);}
+    .diagram-pane{height:54vh;}
+    .stats{display:none;}
+    header.topbar{padding:10px 14px;}
+    .brand h1{font-size:22px;}
+  }
+  @media (max-width:560px){
+    .legend{max-width:180px;font-size:10px;}
+    .brand .tag{display:none;}
+    .flow-panel{padding:12px;}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <h1>Atalaya</h1>
+    <span class="tag">arquitectura interactiva</span>
+  </div>
+  <div class="stats" id="statsLine"></div>
+  <div class="toolbar">
+    <button id="zoomOut" title="Alejar" type="button">−</button>
+    <span class="zoom-level" id="zoomLevel">100%</span>
+    <button id="zoomIn" title="Acercar" type="button">+</button>
+    <div class="divider"></div>
+    <button id="zoomReset" title="Restablecer vista" type="button">⤾</button>
+    <button id="fitBtn" title="Ajustar a pantalla" type="button">⤢</button>
+  </div>
+</header>
+
+<div class="app">
+  <div class="diagram-pane" id="diagramPane">
+    <div class="active-flow-pill" id="activeFlowPill">
+      <span class="lbl">Flujo activo</span>
+      <b id="activeFlowLabel"></b>
+      <button id="clearFlowBtn" title="Cerrar flujo" type="button">✕</button>
+    </div>
+
+    <svg id="svg" viewBox="0 0 3380 1500" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <marker id="arrow-default" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#b9b7aa"></path>
+        </marker>
+        <marker id="arrow-active" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#4750a8"></path>
+        </marker>
+      </defs>
+      <g id="viewport">
+        <g id="framesLayer"></g>
+        <g id="labelsLayer"></g>
+        <g id="edgesLayer"></g>
+        <g id="nodesLayer"></g>
+      </g>
+    </svg>
+
+    <div class="legend" id="legend">
+      <div class="legend-head" id="legendHead">
+        <span>Referencias</span>
+        <span class="chev">▾</span>
+      </div>
+      <div class="legend-body" id="legendBody"></div>
+    </div>
+  </div>
+
+  <aside class="flow-panel">
+    <div>
+      <span class="eyebrow">05 / Arquitectura estructural</span>
+      <h2>Flujos del sistema</h2>
+      <p class="lede">Recorridos reales trazados desde el código del monorepo: proveedor → adapter → poller → cola durable en PostgreSQL → worker → LLM / Telegram, y el plano de lectura del Command Center. Elegí uno para resaltar su ruta completa.</p>
+    </div>
+    <div id="flowList"></div>
+    <div class="flow-panel-footer">
+      <b>Watchman</b> (Go) · <b>Interpreter</b> (Python/FastAPI) · <b>Command Center</b> (React) sobre <code>PostgreSQL 18</code>.<br>
+      Hover sobre nodos y conexiones para ver el detalle · click para fijar el tooltip · arrastrá para mover · scroll para zoom · <code>Esc</code> limpia la selección.
+    </div>
+  </aside>
+</div>
+
+<div id="tooltip"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* =========================================================
+     1. GEOMETRÍA
+  ========================================================= */
+  var CANVAS_W = 3380, CANVAS_H = 1500;
+  var CX_L = 820;    // eje del carril de ingesta
+  var CX_R = 2720;   // eje del plano de lectura
+
+  var NODES = {};
+  var ROWS = [];
+
+  function N(id, cluster, lines, desc){
+    NODES[id] = {cluster:cluster, lines:lines, desc:desc};
+    return id;
+  }
+  function row(cx, y, w, ids){ ROWS.push({cx:cx, y:y, w:w, ids:ids}); }
+
+  // helper: [titulo, subtitulo, ruta/mono]
+  function L(t1, t2, t3){
+    var out = [{t:t1,k:'title'}];
+    if(t2) out.push({t:t2,k:'title2'});
+    if(t3) out.push({t:t3,k:'sub'});
+    return out;
+  }
+
+  /* =========================================================
+     2. CARRIL IZQUIERDO — ingesta, cola durable e interpretación
+  ========================================================= */
+
+  // --- Fuentes externas de ingesta ---
+  N('ext_sentry','ext', L('Sentry','6 proyectos · 3 apps × front/back','GET /api/0/projects/{org}/{proj}/events/'),
+    'Fuente de errores de Farmami, Wheels House y Prensap. Un proyecto por componente, declarado en config/sentry-integrations.json. La paginación viaja en el header Link (cursor opaco) y se piden los eventos con full=true.');
+  N('ext_aad','ext', L('Microsoft Entra ID','client_credentials','POST /{tenant}/oauth2/v2.0/token'),
+    'Emite el access token de Azure con scope https://api.loganalytics.io/.default a partir de AZURE_TENANT_ID, AZURE_CLIENT_ID y AZURE_CLIENT_SECRET. El token queda cacheado en memoria y se renueva un minuto antes de expirar.');
+  N('ext_azure','ext', L('Azure Log Analytics','AppExceptions · AppPageViews (KQL)','POST /v1/workspaces/{id}/query'),
+    'Fuente de errores y de actividad de Notizap (Application Insights). La consulta KQL filtra por _ResourceId y proyecta un shape neutral: TimeGenerated, ItemId, OperationId, AppRoleName, AppVersion, ExceptionType, OuterMessage, InnermostMessage, Details y Properties.');
+  N('ext_probe_targets','ext', L('Endpoints públicos','8 targets: 4 apps × front/back','config/availability-targets.json'),
+    'URLs reales de frontend y backend de las cuatro aplicaciones monitoreadas. El catálogo declara el id, la app y el componente; la URL concreta llega por variable de entorno (FARMAMI_FRONTEND_URL, NOTIZAP_BACKEND_HEALTH_URL, etc.). Un target sin URL queda deshabilitado, no roto.');
+  row(CX_L, 90, 200, ['ext_sentry','ext_aad','ext_azure','ext_probe_targets']);
+
+  // --- Adapters ---
+  N('adp_sentry','ingest', L('sentry.Client','RequestGate · sanitizeText','internal/sentry/client.go'),
+    'Adapter de Sentry. Un RequestGate compartido admite una sola request concurrente contra la API. Descarta eventos anteriores a monitoring_started_at y los que no son type="error", filtra por environment permitido, arma el fingerprint como errorType:culprit y redacta Authorization, Cookie, tokens y secretos del texto antes de persistir.');
+  N('adp_ai','ingest', L('applicationinsights.Client','token cacheado · overlap 300s','internal/applicationinsights/client.go'),
+    'Adapter de Application Insights. Consulta por ventana temporal (checkpoint menos AZURE_QUERY_OVERLAP_SECONDS) en vez de cursor. Si la fila no trae ItemId genera un id determinístico sha256, arma el fingerprint como ExceptionType:AppRoleName y reemplaza por completo cualquier respuesta que contenga secretos.');
+  row(CX_L, 230, 250, ['adp_sentry','adp_ai']);
+
+  // --- Loops del Watchman ---
+  N('loop_poller','ingest', L('poller.Poller ×7','cada 120s · una goroutine por integración','internal/poller/poller.go'),
+    'Ciclo genérico e independiente del proveedor: lee el checkpoint de la integración, pide el lote al adapter, lo importa y avanza el cursor. Cualquier fallo se registra en source_checkpoints.last_error sin frenar al resto de los pollers.');
+  N('loop_avail','ingest', L('availability.Checker','cada 60s · timeout 5s','internal/availability/checker.go'),
+    'Sondea los 8 endpoints públicos con un GET. Un estado sólo se confirma tras 2 resultados consecutivos iguales (evita el flapping), y por cada aplicación graba un snapshot agregado: operational / degraded / major_outage / unknown.');
+  N('loop_report','ingest', L('reporting.Scheduler','tick 30s · dispara ≥ 20:00 ART','internal/reporting/reporting.go'),
+    'Chequea cada 30 segundos si ya son las 20:00 en America/Argentina/Buenos_Aires. Si el reporte del día todavía no fue generado, congela los límites UTC del día, pide la actividad a cada fuente y lo finaliza dejándolo pendiente de envío.');
+  N('loop_meta','ingest', L('meta.Monitor + Heartbeat','cada 60s · latido cada 30s','internal/meta/monitor.go'),
+    'Meta-observabilidad: cada worker escribe su latido en service_heartbeats y el monitor evalúa señales — heartbeat vencido (>90s), pollers detenidos, backlog de interpretación (pendientes, atrasados >5min, ≥3 fallos en 15min) y backlog de Telegram. Sólo notifica en la transición de estado.');
+  N('loop_retention','ingest', L('retention.Worker','cada 24h · EVENT_RETENTION_DAYS=90','internal/retention/worker.go'),
+    'Purga en segundo plano los eventos anteriores al período de retención. Corre una vez al arranque y luego cada 24 horas; si retentionDays no es positivo, el worker queda deshabilitado.');
+  row(CX_L, 370, 185, ['loop_poller','loop_avail','loop_report','loop_meta','loop_retention']);
+
+  // --- Persistencia ---
+  N('store','core', L('store.Postgres','pgxpool · transacciones · SKIP LOCKED','internal/store/postgres.go · operations.go · status.go'),
+    'Única capa de acceso a datos. Encapsula la idempotencia de la ingesta, el claim transaccional de jobs con FOR UPDATE SKIP LOCKED, los advisory locks de las ventanas de alerta, el backoff exponencial de los reintentos y todas las consultas del Command Center.');
+  row(CX_L, 510, 470, ['store']);
+
+  // --- PostgreSQL: núcleo ---
+  N('db_catalog','db', L('Catálogo e integraciones','applications · integrations','source_checkpoints'),
+    'applications guarda el slug y la alert_policy efectiva. integrations describe cada par app/componente con su fuente, proyecto, environments y monitoring_started_at. source_checkpoints conserva el cursor JSON, last_attempt_at, last_success_at y last_error de cada integración.');
+  N('db_events','db', L('Errores','error_groups','error_events'),
+    'error_events conserva la ocurrencia externa individual; el único (integration_id, source_event_id) la hace idempotente. error_groups agrupa por integración + environment + fingerprint y mantiene occurrence_count, first_seen_at y last_seen_at.');
+  N('db_jobs','db', L('Cola de interpretación','interpretation_jobs','pending · processing · completed · failed'),
+    'Cola durable en PostgreSQL. Cada evento importado encola un job con prompt_version. Los jobs guardan attempts, max_attempts, available_at, locked_at y locked_by; un lease "processing" de más de 5 minutos se considera abandonado y vuelve a reclamarse.');
+  N('db_interp','db', L('Interpretaciones','interpretations','tokens · costo · latencia'),
+    'Resultado del LLM por evento: summary, explanation, severity, actionable, suggested_actions, modelo, prompt_version, input/output/total tokens, estimated_cost_usd (numeric, NULL = el proveedor no informó) y latency_ms. Es también la fuente del centro de costos.');
+  N('db_alerts','db', L('Alertas','alert_windows · notification_jobs','notification_delivery_attempts'),
+    'alert_windows es la ventana de deduplicación por grupo de error (900s por defecto) con su contador de ocurrencias. notification_jobs separa la decisión de alertar de la entrega, y notification_delivery_attempts audita cada intento sin guardar el token del bot.');
+  row(CX_L, 650, 180, ['db_catalog','db_events','db_jobs','db_interp','db_alerts']);
+
+  // --- PostgreSQL: operación ---
+  N('db_reports','db', L('Reportes diarios','daily_reports','daily_report_applications · _delivery_attempts'),
+    'daily_reports usa report_date como clave idempotente del día calendario argentino. La foto por aplicación distingue una actividad "unavailable" (activity_count en NULL) de un día con cero sesiones. Los fallos transitorios se reprograman 30 minutos.');
+  N('db_ops','db', L('Bitácora','incidents · incident_entries','incident_error_groups · deployments'),
+    'Un incidente agrupa uno o más error_groups; los advisory locks impiden que un grupo quede en dos investigaciones activas. incident_entries es append-only (notas, transiciones, alta y baja de grupos). deployments normaliza markers manuales, de Railway y de GitHub Actions con (provider, external_id) único.');
+  N('db_avail','db', L('Disponibilidad','availability_targets · availability_probes','availability_snapshots'),
+    'targets guarda el estado confirmado y los contadores consecutivos de cada endpoint, probes registra cada sondeo con latencia y error saneado, y snapshots alimenta el uptime de 30 días que muestra la status page pública.');
+  N('db_meta','db', L('Salud interna','service_heartbeats','health_signal_states'),
+    'service_heartbeats guarda el último latido por señal (interpreter_worker, notification_worker, report_worker, health_checker, internal_evaluator). health_signal_states conserva el estado anterior para avisar sólo cuando hay cambio real.');
+  N('db_sessions','db', L('Sesiones','command_center_sessions','hash sha256 del token'),
+    'Sesión de usuario único del Command Center. Se guarda el sha256 del token — nunca el token — junto a su vencimiento y su revocación.');
+  row(CX_L, 790, 180, ['db_reports','db_ops','db_avail','db_meta','db_sessions']);
+
+  // --- Workers de cola ---
+  N('w_interp','worker', L('interpreter.Worker','claim cada 2s','internal/interpreter/worker.go'),
+    'Reclama un job de interpretación por vez, lo manda al servicio Python y persiste el resultado. Distingue fallos reintentables (timeout, 429, 503, 504) de definitivos: los primeros vuelven a pending con backoff exponencial de 2^(intento-1) minutos, los segundos marcan el job como failed.');
+  N('w_notif','worker', L('notification.Worker','claim cada 2s · rate limit por app','internal/notification/worker.go'),
+    'Reclama alertas ya elegibles. El propio claim aplica el rate limit por aplicación (10 envíos cada 600s por defecto) y descarta el resumen agrupado cuando la ventana terminó con una sola ocurrencia.');
+  N('w_report','worker', L('reporting.Worker','entrega del reporte diario','internal/reporting/reporting.go'),
+    'Toma el reporte del día ya finalizado, lo formatea y lo envía por Telegram. Registra el intento y, si el envío falla de forma transitoria, lo reprograma; al alcanzar period_end el reporte pasa a expired.');
+  N('w_budget','worker', L('costs.BudgetMonitor','LLM_MONTHLY_BUDGET_USD = 5.00','internal/costs/budget.go'),
+    'Calcula el consumo del mes sobre interpretations y avisa por Telegram al superar el 80% del presupuesto, con un cooldown de 24 horas entre alertas. Se ejecuta a demanda desde GET /api/v1/system/costs.');
+  row(CX_L, 940, 195, ['w_interp','w_notif','w_report','w_budget']);
+
+  // --- Salida / formato ---
+  N('cli_interp','worker', L('interpreter.Client','X-Correlation-ID · timeout 30s','internal/interpreter/client.go'),
+    'Cliente HTTP de Go hacia el servicio Python. Valida la respuesta antes de aceptarla: exige summary, explanation, model y prompt_version, y que total_tokens sea exactamente input + output. Rechaza campos desconocidos.');
+  N('fmt_notif','worker', L('notification.Format','mensaje HTML de Telegram','internal/notification/message.go'),
+    'Arma el mensaje: ícono por severidad, app y componente, tipo de error, resumen, explicación, ocurrencias, primera y última vez, release, acciones sugeridas y enlaces profundos a Atalaya y a Sentry. Escapa todo el contenido dinámico.');
+  N('fmt_report','worker', L('reporting.Format','resumen diario','internal/reporting/reporting.go'),
+    'Compone el reporte de las 20:00: por aplicación, sesiones o "no disponible", errores, ocurrencias, desglose por severidad y accionables; al final, el total del día.');
+  N('cli_telegram','worker', L('telegram.Client','sendMessage · parse_mode HTML','internal/telegram/client.go'),
+    'Único punto de salida hacia Telegram. Lo usan el worker de alertas y el de reportes, pero también — de forma directa, sin pasar por la cola — el checker de disponibilidad, el monitor de salud interna y el monitor de presupuesto.');
+  row(CX_L, 1080, 195, ['cli_interp','fmt_notif','fmt_report','cli_telegram']);
+
+  // --- Interpreter (Python) ---
+  N('py_api','llm', L('FastAPI · api.py','POST /v1/interpretations','/health · /ready'),
+    'Servicio de interpretación. Valida que la prompt_version pedida esté desplegada (error-analysis-v1), responde 503 si OpenRouter no está configurado y devuelve errores como application/problem+json con el correlation id propagado desde Watchman.');
+  N('py_models','llm', L('models.py','contrato v1 (pydantic)','Analysis · InterpretationResponse'),
+    'Modelos del contrato: el evento normalizado de entrada y el análisis de salida (summary, explanation, severity, actionable, suggested_actions). El JSON Schema de Analysis es el mismo que se le exige al modelo.');
+  N('py_prompt','llm', L('prompt.py','SYSTEM_PROMPT + event_prompt()','stack recortado a 12.000 chars'),
+    'Segunda barrera de sanitización: redacta bearer tokens, contraseñas, api keys y credenciales embebidas en URLs de conexión antes de mandar nada al proveedor, y trunca el stack trace. El prompt en español pide no inventar causas y marcar actionable=false cuando es ruido.');
+  N('py_or','llm', L('openrouter.py','OpenRouterClient · 2 reintentos','response_format json_schema strict'),
+    'Cliente asíncrono (httpx). Fuerza salida estructurada con json_schema strict, temperature 0.1 y max_tokens 900. Reintenta ante timeout, error de red, 408, 429 y 5xx; un 4xx se considera definitivo. Traduce el consumo reportado a tokens y costo.');
+  row(CX_L, 1220, 195, ['py_api','py_models','py_prompt','py_or']);
+
+  // --- Proveedores de salida ---
+  N('ext_openrouter','ext', L('OpenRouter','openai/gpt-4.1-mini','POST /api/v1/chat/completions'),
+    'Proveedor del LLM. Devuelve el análisis como JSON estructurado junto al uso de tokens y, cuando lo informa, el costo real de la request — que es lo que alimenta el centro de costos y el presupuesto mensual.');
+  N('ext_telegram','ext', L('Telegram Bot API','chat privado de guardia','sendMessage'),
+    'Canal de alertas: alertas de evento, resúmenes agrupados, aviso de interpreter degradado, reporte diario de las 20:00, cambios de disponibilidad, señales de salud interna y alerta de presupuesto.');
+  row(CX_L, 1360, 200, ['ext_openrouter','ext_telegram']);
+
+  // --- Nodo suelto: dead man's switch ---
+  NODES.ext_hc = {cluster:'ext', lines:L('Healthchecks.io','dead man’s switch','HEALTHCHECKS_PING_URL'),
+    desc:'El monitor hace ping sólo si además puede alcanzar la base de datos. Si Atalaya entera se cae, el ping deja de llegar y Healthchecks.io avisa por afuera del sistema — el único aviso que no depende de Atalaya.',
+    x:1720, y:370, w:210};
+
+  /* =========================================================
+     3. CARRIL DERECHO — plano de lectura y operación
+        (el flujo asciende: pantalla → API → store)
+  ========================================================= */
+
+  N('ext_railway','ext', L('Railway','webhook de deploy','?token=RAILWAY_WEBHOOK_TOKEN'),
+    'Notifica los despliegues de Railway. Sólo se persisten los exitosos del entorno production; el resto responde 204 y se descarta. La ruta lleva la app y el componente, y se redacta del log de acceso.');
+  N('ext_gha','ext', L('GitHub Actions','webhook de deploy','Authorization: Bearer'),
+    'Publica el marker de deploy al terminar el pipeline, autenticado con DEPLOYMENT_INGEST_TOKEN comparado en tiempo constante. También existe el alta manual desde la Bitácora.');
+  row(CX_R, 370, 210, ['ext_railway','ext_gha']);
+
+  N('h_read','api', L('Lectura','/api/v1/overview · /events','/integrations · /reports'),
+    'Endpoints de consulta del Command Center. Validan estrictamente limit, offset, application (slug), severity, state y period antes de tocar la base, y devuelven páginas con total para la tabla de eventos.');
+  N('h_ops','api', L('Bitácora','/api/v1/error-groups · /incidents','/deployments · /operations/timeline'),
+    'Operación de incidentes y deploys: agrupar errores en un incidente, agregar notas, cambiar estado con explicación obligatoria, publicar o despublicar el incidente en la status page y superponer deploys con picos de error en la línea de tiempo.');
+  N('h_system','api', L('Sistema','/api/v1/system/health','/api/v1/system/costs'),
+    'Expone la salud interna evaluada por meta.Monitor (señales y tamaño de las colas) y el resumen de costos del LLM: tokens, costo del mes, porcentaje del presupuesto y desglose por aplicación y por modelo.');
+  N('h_public','api', L('Status pública','/api/v1/public/status','sin auth · cache 30s'),
+    'Único endpoint sin sesión. Devuelve estado por aplicación y componente, uptime de 30 días e incidentes publicados — con título y mensaje saneados, sin stack traces, nombres de proyecto ni datos internos.');
+  N('h_hooks','api', L('Webhooks de deploy','/hooks/v1/deployments','/hooks/v1/deployments/railway/{app}/{comp}'),
+    'Ingesta de deploy markers, fuera del esquema de cookie: token Bearer para GitHub Actions y token por query string para Railway, ambos comparados con subtle.ConstantTimeCompare. El alta es idempotente por (provider, external_id).');
+  row(CX_R, 510, 185, ['h_read','h_ops','h_system','h_public','h_hooks']);
+
+  N('mw_private','api', L('private()','cookie atalaya_session','HttpOnly · Secure · SameSite=Lax'),
+    'Middleware de sesión: sin cookie válida responde 401 y el cliente vuelve al login. Envuelve todas las rutas /api/v1 excepto el login, el status público y los webhooks.');
+  N('auth_svc','api', L('auth.Service','Argon2id · token de 32 bytes','internal/auth/service.go'),
+    'Autenticación de usuario único. Verifica la contraseña contra ATALAYA_ADMIN_PASSWORD_HASH (Argon2id, comparación en tiempo constante), genera un token aleatorio de 32 bytes y guarda sólo su sha256. Un login inválido espera 250 ms antes de responder.');
+  row(CX_R, 650, 240, ['mw_private','auth_svc']);
+
+  N('http_mux','api', L('httpserver — Watchman API (Go)','net/http mux · correlation()','X-Correlation-ID · nosniff · X-Frame-Options: DENY'),
+    'Servidor HTTP del núcleo. Cada request recibe o valida un correlation id que viaja hasta el Interpreter, se loguea con método, ruta y duración, y sale con las cabeceras de seguridad. Los cuerpos se leen con MaxBytesReader y campos desconocidos rechazados.');
+  row(CX_R, 790, 360, ['http_mux']);
+
+  N('cf_proxy','ui', L('Cloudflare Pages Function','functions/api/[[path]].ts','proxy /api/* → WATCHMAN_ORIGIN'),
+    'Reenvía las llamadas /api/* del Command Center al origen de Watchman conservando método, headers y cuerpo. Mantiene todo en el mismo origen, que es lo que permite usar una cookie HttpOnly sin CORS.');
+  row(CX_R, 930, 360, ['cf_proxy']);
+
+  N('cc_api','ui', L('api.ts','fetch · credentials: same-origin','401 → vuelve al login'),
+    'Cliente HTTP tipado de la SPA. Un solo helper request<T>() centraliza los headers, el manejo de 204 y la traducción de errores; el 401 se propaga como "unauthorized" y desmonta la sesión.');
+  row(CX_R, 1070, 360, ['cc_api']);
+
+  N('cc_login','ui', L('LoginPage','contraseña única','features/auth'),
+    'Pantalla de acceso. No hay registro ni usuarios múltiples: una sola contraseña de guardia contra el hash Argon2id del servidor.');
+  N('cc_overview','ui', L('OverviewPage','estado de las 4 apps','features/overview'),
+    'Tablero de entrada: estado por aplicación derivado de sus integraciones, últimos eventos y acceso directo al diagrama de arquitectura de cada app.');
+  N('cc_events','ui', L('Eventos','EventsPage · EventDetailPage','features/events'),
+    'Tabla filtrable por aplicación, severidad, estado y período, y el detalle del evento con la interpretación del LLM, el stack trace, la metadata y las otras ocurrencias del mismo grupo.');
+  N('cc_ops','ui', L('Bitácora','OperationsPage (lazy)','features/operations'),
+    'Línea de tiempo de errores por hora o por día con los deploys superpuestos, más la gestión de incidentes: agrupar, anotar, cerrar y publicar en la status page.');
+  row(CX_R, 1210, 178, ['cc_login','cc_overview','cc_events','cc_ops']);
+
+  N('cc_reports','ui', L('Reportes','ReportsPage','features/reports'),
+    'Historial de los reportes diarios de las 20:00 ART con su estado de entrega, actividad por aplicación y desglose de severidades.');
+  N('cc_arch','ui', L('Arquitectura','ArchitecturePage','features/architecture'),
+    'Visor de los diagramas interactivos. Carga cada HTML estático en un iframe con pestañas por aplicación, recarga y pantalla completa. Es la pantalla desde la que estás viendo este diagrama.');
+  N('cc_system','ui', L('Sistema','SystemPage + CostCenter','features/system'),
+    'Salud interna del propio Atalaya — señales, latidos y tamaño de las colas — junto al centro de costos del LLM con la barra de presupuesto consumido y el desglose por aplicación y por modelo.');
+  N('cc_status','ui', L('Status pública','StatusPage · ruta /status','features/status'),
+    'Página pública sin sesión: se resuelve antes de montar la app privada. Muestra estado por aplicación y componente, uptime de 30 días e incidentes publicados.');
+  N('cc_diagrams','ui', L('Diagramas estáticos','public/diagrams/*.html','5 archivos autocontenidos'),
+    'Los cinco diagramas interactivos servidos como HTML estático desde el propio Command Center: Farmami, Notizap, Prensapp, Wheels House y este, el de Atalaya.');
+  row(CX_R, 1350, 178, ['cc_reports','cc_arch','cc_system','cc_status','cc_diagrams']);
+
+  /* =========================================================
+     4. LAYOUT — posiciona filas y calcula alturas
+  ========================================================= */
+  ROWS.forEach(function(r){
+    var n = r.ids.length;
+    var colW = r.w + 26;
+    var startX = r.cx - (n*colW)/2 + colW/2;
+    r.ids.forEach(function(id, i){
+      var node = NODES[id];
+      node.x = startX + i*colW;
+      node.y = r.y;
+      node.w = r.w;
+    });
+  });
+
+  var LINE_H = {title:17, title2:14, sub:13, mono:13};
+  var FONT_SIZE = {title:13, title2:11, sub:9.2, mono:9.2};
+  var PAD_V = 13;
+  Object.keys(NODES).forEach(function(id){
+    var n = NODES[id];
+    var h = PAD_V*2;
+    n.lines.forEach(function(l){ h += LINE_H[l.k]; });
+    n.h = Math.max(h, 48);
+  });
+
+  /* =========================================================
+     5. ETIQUETAS DE CARRIL Y DE FILA
+  ========================================================= */
+  var LANE_TITLES = [
+    {x:CX_L, y:34, t:'Canal de ingesta, cola durable e interpretación'},
+    {x:CX_R, y:34, t:'Plano de lectura y operación'}
+  ];
+  var ROW_LABELS = [
+    {x:300, y:90,   t:'Fuentes externas'},
+    {x:300, y:230,  t:'Adapters'},
+    {x:300, y:370,  t:'Loops del Watchman'},
+    {x:300, y:510,  t:'Persistencia'},
+    {x:300, y:650,  t:'PostgreSQL · núcleo'},
+    {x:300, y:790,  t:'PostgreSQL · operación'},
+    {x:300, y:940,  t:'Workers de cola'},
+    {x:300, y:1080, t:'Salida y formato'},
+    {x:300, y:1220, t:'Interpreter · Python'},
+    {x:300, y:1360, t:'Proveedores'},
+    {x:2180, y:370,  t:'Webhooks de deploy'},
+    {x:2180, y:510,  t:'Handlers HTTP'},
+    {x:2180, y:650,  t:'Sesión'},
+    {x:2180, y:790,  t:'Servidor HTTP · Go'},
+    {x:2180, y:930,  t:'Edge · Cloudflare'},
+    {x:2180, y:1070, t:'Cliente HTTP · SPA'},
+    {x:2180, y:1280, t:'Command Center · React'}
+  ];
+  var LANE_FRAMES = [
+    {x:270, y:52, w:1130, h:1412},
+    {x:2160, y:52, w:1160, h:1412}
+  ];
+
+  /* =========================================================
+     6. EDGES
+  ========================================================= */
+  var EDGES = [];
+  function E(from, to, label, opt){
+    EDGES.push({from:from, to:to, label:label||null, dashed:!!(opt&&opt.dashed)});
+  }
+
+  // --- ingesta ---
+  E('loop_poller','adp_sentry','FetchEvents(cursor)');
+  E('loop_poller','adp_ai','FetchEvents(checkpoint)');
+  E('adp_sentry','ext_sentry','GET events?full=true');
+  E('adp_ai','ext_aad','access token');
+  E('adp_ai','ext_azure','KQL AppExceptions');
+  E('loop_poller','store','Checkpoint · ImportBatch · RecordAttempt');
+  E('loop_report','adp_sentry','FetchActivity — sesiones');
+  E('loop_report','adp_ai','FetchActivity — dcount(SessionId)');
+  E('loop_report','store','EnsureDailyReport · SaveDailyActivity');
+  E('loop_retention','store','PurgeOldEvents(90 días)');
+  E('loop_avail','ext_probe_targets','GET · timeout 5s');
+  E('loop_avail','db_avail','pgxpool directo', {dashed:true});
+  E('loop_avail','cli_telegram','cambio confirmado up/down');
+  E('loop_meta','db_meta','latidos y estados', {dashed:true});
+  E('loop_meta','ext_hc','ping si la DB responde');
+  E('loop_meta','cli_telegram','señal degradada / recuperada');
+
+  // --- store → tablas ---
+  E('store','db_catalog','EnsureIntegration · Checkpoint');
+  E('store','db_events','ImportBatch (idempotente)');
+  E('store','db_jobs','claim · complete · fail');
+  E('store','db_interp','INSERT interpretations');
+  E('store','db_alerts','ventanas y entregas');
+  E('store','db_reports','reporte diario');
+  E('store','db_ops','incidentes y deploys');
+  E('store','db_avail','PublicStatus (uptime 30d)');
+  E('store','db_sessions','CreateSession · SessionValid');
+
+  // --- cadena interna de la cola ---
+  E('db_events','db_jobs','encola durante ImportBatch', {dashed:true});
+  E('db_jobs','db_interp','resultado del LLM', {dashed:true});
+  E('db_interp','db_alerts','alert_window + notification_job', {dashed:true});
+
+  // --- workers ---
+  E('w_interp','store','Claim / Complete / Fail');
+  E('w_interp','cli_interp','Interpret(job)');
+  E('cli_interp','py_api','POST /v1/interpretations');
+  E('py_api','py_models','valida contrato v1');
+  E('py_api','py_or','interpret(payload)');
+  E('py_or','py_prompt','sanitiza y arma el prompt');
+  E('py_or','ext_openrouter','chat/completions · json_schema');
+  E('w_notif','store','ClaimNotificationJob');
+  E('w_notif','fmt_notif','Format(job, links)');
+  E('fmt_notif','cli_telegram','texto HTML');
+  E('w_report','store','ClaimDailyReport');
+  E('w_report','fmt_report','Format(report)');
+  E('fmt_report','cli_telegram','resumen 20:00 ART');
+  E('cli_telegram','ext_telegram','sendMessage');
+  E('w_budget','store','GetCostSummary(mes)');
+  E('w_budget','cli_telegram','≥ 80% del presupuesto');
+
+  // --- plano de lectura ---
+  E('cc_login','cc_api','POST /api/v1/session');
+  E('cc_overview','cc_api','GET /api/v1/overview');
+  E('cc_events','cc_api','GET /api/v1/events');
+  E('cc_ops','cc_api','timeline · incidents · deployments');
+  E('cc_reports','cc_api','GET /api/v1/reports');
+  E('cc_system','cc_api','system/health · system/costs');
+  E('cc_status','cc_api','GET /api/v1/public/status');
+  E('cc_arch','cc_diagrams','iframe HTML estático', {dashed:true});
+  E('cc_api','cf_proxy','fetch same-origin /api/*');
+  E('cf_proxy','http_mux','WATCHMAN_ORIGIN');
+  E('http_mux','auth_svc','login · logout');
+  E('http_mux','mw_private','rutas privadas');
+  E('http_mux','h_public','sin sesión');
+  E('http_mux','h_hooks','token propio');
+  E('mw_private','auth_svc','Valid(token)');
+  E('mw_private','h_read');
+  E('mw_private','h_ops');
+  E('mw_private','h_system');
+  E('auth_svc','store','SessionValid (sha256)');
+  E('h_read','store','consultas paginadas');
+  E('h_ops','store','incidentes · timeline');
+  E('h_public','store','PublicStatus');
+  E('h_hooks','store','SaveDeployment (idempotente)');
+  E('h_system','w_budget','CheckBudget()');
+  E('h_system','loop_meta','Health() — señales y colas', {dashed:true});
+  E('ext_railway','h_hooks','deploy exitoso en production');
+  E('ext_gha','h_hooks','marker del pipeline');
+
+  var edgeIndex = {};
+  EDGES.forEach(function(e,i){ edgeIndex[e.from+'>'+e.to] = i; });
+
+  /* =========================================================
+     7. FLUJOS
+  ========================================================= */
+  var C_ING = '#ba8a40', C_LLM = '#c1432e', C_ALERT = '#005838', C_API = '#4750a8', C_UI = '#7079c2', C_DB = '#313979';
+
+  var FLOWS = [
+    {
+      id:'sentry', title:'Ingesta desde Sentry', color:C_ING,
+      desc:'Cada 120 s, una goroutine por integración trae los errores nuevos de Sentry, los deduplica por fingerprint y encola su interpretación.',
+      segments:[
+        ['loop_poller','store','db_catalog'],
+        ['loop_poller','adp_sentry','ext_sentry'],
+        ['store','db_events','db_jobs']
+      ],
+      steps:[
+        'El <b>poller</b> lee el cursor guardado en <code>source_checkpoints</code> para esa integración.',
+        '<b>sentry.Client</b> pide el lote con <code>full=true</code>; el RequestGate garantiza una sola request concurrente contra la API.',
+        'Se descartan los eventos previos a <code>monitoring_started_at</code>, los que no son <code>type="error"</code> y los de environments no permitidos.',
+        'Se normaliza el evento (<code>fingerprint = errorType:culprit</code>) y se redactan Authorization, Cookie, tokens y secretos.',
+        '<b>ImportBatch</b> corre en una transacción con el checkpoint bloqueado: el único <code>(integration_id, source_event_id)</code> evita reimportar.',
+        'Se hace upsert del <b>error_group</b> (sube <code>occurrence_count</code>) y se inserta el <b>error_event</b>.',
+        'Se encola un job en <code>interpretation_jobs</code> y recién entonces avanza el cursor y se marca <code>last_success_at</code>.'
+      ]
+    },
+    {
+      id:'azure', title:'Ingesta desde Application Insights', color:C_ING,
+      desc:'Notizap no usa Sentry: Watchman consulta Azure Log Analytics con KQL por ventana temporal, con solapamiento para no perder eventos.',
+      segments:[
+        ['loop_poller','adp_ai','ext_aad'],
+        ['adp_ai','ext_azure'],
+        ['loop_poller','store','db_events','db_jobs']
+      ],
+      steps:[
+        'El poller de Notizap invoca al <b>adapter de Application Insights</b> con el checkpoint anterior.',
+        'Se pide (o se reutiliza de cache) el token de <b>Entra ID</b> con scope <code>api.loganalytics.io/.default</code>.',
+        'La ventana consultada arranca en <code>checkpoint − 300 s</code>: el solapamiento cubre la latencia de indexación de Azure.',
+        'La query KQL sobre <b>AppExceptions</b> proyecta un shape neutral — los nombres de columna del proveedor no salen del adapter.',
+        'Si la fila no trae <code>ItemId</code> se genera un id determinístico sha256; el fingerprint es <code>ExceptionType:AppRoleName</code>.',
+        'El resultado entra por el mismo <b>ImportBatch</b> que Sentry: misma deduplicación, mismas tablas, misma cola.'
+      ]
+    },
+    {
+      id:'llm', title:'Interpretación con LLM', color:C_LLM,
+      desc:'El worker reclama un job de la cola durable, el servicio Python lo manda a OpenRouter con salida estructurada y el resultado vuelve a PostgreSQL.',
+      segments:[
+        ['w_interp','store','db_jobs'],
+        ['w_interp','cli_interp','py_api','py_or','ext_openrouter'],
+        ['py_api','py_models'],
+        ['py_or','py_prompt'],
+        ['store','db_interp','db_alerts']
+      ],
+      steps:[
+        'El worker reclama un job con <code>FOR UPDATE SKIP LOCKED</code> y lo marca <code>processing</code> con su lease.',
+        'También recupera los leases abandonados: un <code>processing</code> de más de 5 minutos vuelve a estar disponible.',
+        '<b>interpreter.Client</b> hace <code>POST /v1/interpretations</code> propagando el <code>X-Correlation-ID</code>.',
+        'FastAPI valida la <code>prompt_version</code> desplegada y el contrato del evento con <b>pydantic</b>.',
+        '<b>prompt.py</b> vuelve a sanitizar el stack trace, lo trunca a 12.000 caracteres y arma el prompt en español.',
+        'OpenRouter responde con <code>json_schema strict</code>: resumen, explicación, severidad, actionable y hasta cinco acciones.',
+        'Go valida la respuesta (exige que <code>total_tokens = input + output</code>) y persiste la interpretación con tokens, costo y latencia.',
+        'Si el fallo es reintentable el job vuelve a <code>pending</code> con backoff exponencial; si se agotan los intentos se encola la alerta de <i>interpreter degradado</i>.'
+      ]
+    },
+    {
+      id:'alert', title:'Alerta por Telegram', color:C_ALERT,
+      desc:'No toda interpretación alerta: hay política por aplicación, ventana de deduplicación de 15 minutos y rate limit por app.',
+      segments:[
+        ['w_notif','store','db_alerts'],
+        ['w_notif','fmt_notif','cli_telegram','ext_telegram']
+      ],
+      steps:[
+        'Al persistir la interpretación se evalúa la <b>alert_policy</b> de la aplicación: severidades que siempre alertan (critical, high) y las que alertan sólo si son accionables (medium).',
+        'Con un advisory lock sobre el grupo de error se busca una <b>alert_window</b> abierta. Si existe, sólo se incrementa el contador — no se manda un segundo mensaje.',
+        'Si no existe y el evento es elegible, se abre la ventana (900 s) y se encolan dos jobs: la alerta inmediata y el resumen agrupado al cerrar.',
+        'El <b>notification.Worker</b> reclama el job; el propio claim aplica el rate limit por aplicación (10 envíos cada 600 s).',
+        'Un resumen agrupado cuya ventana terminó con una sola ocurrencia se marca <code>skipped</code>: no se envía ruido.',
+        '<b>notification.Format</b> arma el mensaje HTML con ocurrencias, release, acciones sugeridas y enlaces a Atalaya y a Sentry.',
+        'Cada intento queda auditado en <code>notification_delivery_attempts</code>, con reintentos exponenciales ante fallos transitorios.'
+      ]
+    },
+    {
+      id:'report', title:'Reporte diario · 20:00 ART', color:C_ALERT,
+      desc:'Combina el volumen de errores del día con la actividad real (sesiones) de cada aplicación y lo envía una sola vez por día.',
+      segments:[
+        ['loop_report','store','db_reports'],
+        ['loop_report','adp_sentry','ext_sentry'],
+        ['loop_report','adp_ai','ext_azure'],
+        ['w_report','store'],
+        ['w_report','fmt_report','cli_telegram','ext_telegram']
+      ],
+      steps:[
+        'El scheduler chequea cada 30 s si ya son las 20:00 en <code>America/Argentina/Buenos_Aires</code>.',
+        '<b>EnsureDailyReport</b> es idempotente por <code>report_date</code>: si el día ya se generó, no vuelve a hacerlo.',
+        'Se pide la actividad a cada fuente — sesiones de Sentry por proyecto, <code>dcount(SessionId)</code> en Azure para Notizap.',
+        'Una fuente caída se guarda como <code>unavailable</code> con <code>activity_count = NULL</code>: distinto de un día con cero sesiones.',
+        'El reporte se finaliza congelando errores, ocurrencias, severidades y accionables por aplicación.',
+        'El <b>worker de reportes</b> lo reclama, lo formatea y lo envía; los fallos transitorios se reprograman 30 minutos y al llegar a <code>period_end</code> pasa a <code>expired</code>.'
+      ]
+    },
+    {
+      id:'availability', title:'Disponibilidad y status pública', color:C_ALERT,
+      desc:'Sondeo externo cada minuto de las 8 URLs públicas, con confirmación anti-flapping, y su exposición en la página /status sin sesión.',
+      segments:[
+        ['loop_avail','ext_probe_targets'],
+        ['loop_avail','db_avail'],
+        ['loop_avail','cli_telegram','ext_telegram'],
+        ['cc_status','cc_api','cf_proxy','http_mux','h_public','store','db_avail']
+      ],
+      steps:[
+        'El <b>checker</b> recorre los 8 targets del catálogo (4 apps × frontend y backend) con un GET y timeout de 5 s.',
+        'Un estado sólo pasa a <code>up</code> o <code>down</code> tras <b>2 sondeos consecutivos iguales</b>: evita alertar por un pico aislado.',
+        'Cada sondeo se guarda en <code>availability_probes</code> con latencia y el error clasificado (timeout, connection refused, tls…), nunca el error crudo.',
+        'Por aplicación se graba un snapshot agregado que después alimenta el uptime de 30 días.',
+        'Ante un cambio confirmado se avisa por Telegram <b>directo</b>, sin pasar por la cola de notificaciones.',
+        '<code>GET /api/v1/public/status</code> es el único endpoint sin sesión: devuelve estado, uptime e incidentes publicados, con el texto público saneado.'
+      ]
+    },
+    {
+      id:'meta', title:'Meta-observabilidad y dead man’s switch', color:C_DB,
+      desc:'Atalaya se monitorea a sí misma: latidos de cada worker, backlog de las colas, pollers detenidos y un ping externo que avisa si todo se cae.',
+      segments:[
+        ['loop_meta','db_meta'],
+        ['loop_meta','ext_hc'],
+        ['loop_meta','cli_telegram','ext_telegram'],
+        ['cc_system','cc_api','cf_proxy','http_mux','mw_private','h_system','loop_meta']
+      ],
+      steps:[
+        'Cada worker escribe su latido en <code>service_heartbeats</code> cada 30 s; un latido de más de 90 s marca la señal como degradada.',
+        'El evaluador corre cada minuto: pollers detenidos (sin intento en 3 intervalos), backlog de interpretación y backlog de Telegram.',
+        'La cola de interpretación se considera degradada con pendientes atrasados >5 min, ≥3 fallos en 15 min o ≥20 pendientes.',
+        'Los estados viven en <code>health_signal_states</code>: sólo se notifica la <b>transición</b>, no cada ciclo — degradado y recuperado.',
+        'Si además la base responde, se hace ping a <b>Healthchecks.io</b>: si Atalaya entera cae, la ausencia del ping avisa desde afuera.',
+        'La pantalla <b>Sistema</b> consume la misma evaluación por <code>GET /api/v1/system/health</code>.'
+      ]
+    },
+    {
+      id:'costs', title:'Costos del LLM y presupuesto', color:C_DB,
+      desc:'Cada interpretación guarda tokens, costo y latencia; el monitor de presupuesto avisa al superar el 80% del gasto mensual.',
+      segments:[
+        ['cc_system','cc_api','cf_proxy','http_mux','mw_private','h_system','w_budget','store','db_interp'],
+        ['w_budget','cli_telegram','ext_telegram']
+      ],
+      steps:[
+        'Cada fila de <code>interpretations</code> conserva input/output/total tokens, <code>estimated_cost_usd</code> y <code>latency_ms</code>.',
+        'El costo usa <code>numeric</code>, no punto flotante; <code>NULL</code> significa que el proveedor no informó lo suficiente para estimarlo.',
+        '<code>GET /api/v1/system/costs</code> dispara <b>CheckBudget</b>, que agrega el gasto del mes por aplicación y por modelo.',
+        'Si el consumo supera el 80% de <code>LLM_MONTHLY_BUDGET_USD</code> (5 USD por defecto) se manda una alerta a Telegram.',
+        'El aviso tiene un cooldown de 24 horas: el presupuesto no genera ruido diario.',
+        'El <b>CostCenter</b> del Command Center muestra la barra de presupuesto consumido y el desglose por aplicación y por modelo.'
+      ]
+    },
+    {
+      id:'session', title:'Login y sesión del Command Center', color:C_API,
+      desc:'Usuario único, contraseña con Argon2id y cookie HttpOnly de sesión — sin JWT en el navegador.',
+      segments:[
+        ['cc_login','cc_api','cf_proxy','http_mux','auth_svc','store','db_sessions'],
+        ['cc_overview','cc_api','cf_proxy','http_mux','mw_private','auth_svc']
+      ],
+      steps:[
+        'La SPA envía <code>POST /api/v1/session</code>; el cuerpo se lee con <code>MaxBytesReader</code> y rechaza campos desconocidos.',
+        'La Pages Function reenvía al origen de Watchman: mismo origen, sin CORS, cookie <code>HttpOnly</code> utilizable.',
+        '<b>auth.Service</b> verifica la contraseña contra el hash <b>Argon2id</b> en tiempo constante; un fallo espera 250 ms antes de responder 401.',
+        'Se genera un token aleatorio de 32 bytes y se guarda <b>sólo su sha256</b> en <code>command_center_sessions</code>.',
+        'La cookie <code>atalaya_session</code> sale <code>HttpOnly</code>, <code>Secure</code> y <code>SameSite=Lax</code>, con vencimiento de 24 h.',
+        'Cada request privada pasa por <code>private()</code>, que revalida el hash del token contra la base antes de llegar al handler.'
+      ]
+    },
+    {
+      id:'read', title:'Consulta de eventos y bitácora', color:C_UI,
+      desc:'El plano de lectura: pantalla → api.ts → Pages Function → API de Go → store → PostgreSQL, con validación estricta en el borde.',
+      segments:[
+        ['cc_events','cc_api','cf_proxy','http_mux','mw_private','h_read','store','db_events'],
+        ['cc_ops','cc_api','cf_proxy','http_mux','mw_private','h_ops','store','db_ops']
+      ],
+      steps:[
+        'La tabla de eventos arma sus filtros — aplicación, severidad, estado, período, paginación — y llama a <code>GET /api/v1/events</code>.',
+        'El handler valida todo antes de tocar la base: limit entre 1 y 100, slug con patrón, severidad y estado dentro del enum, período menor a 90 días.',
+        'El detalle del evento trae la interpretación del LLM, el stack trace, la metadata y las otras ocurrencias del mismo grupo de error.',
+        'La <b>Bitácora</b> pide la línea de tiempo: buckets de una hora (o de un día si el rango supera la semana) con los deploys superpuestos.',
+        'Sobre esos grupos se crean incidentes; cerrar o reabrir siempre exige una nota, y <code>incident_entries</code> es append-only.',
+        'Un incidente puede publicarse en la status page: el título y el mensaje públicos se sanean y nunca incluyen datos internos.'
+      ]
+    },
+    {
+      id:'deploy', title:'Deploy markers (Railway · GitHub Actions)', color:C_API,
+      desc:'Los despliegues entran por webhook, fuera del esquema de cookie, y se superponen a los picos de error en la bitácora.',
+      segments:[
+        ['ext_railway','h_hooks','store','db_ops'],
+        ['ext_gha','h_hooks']
+      ],
+      steps:[
+        'Railway llega a <code>/hooks/v1/deployments/railway/{app}/{componente}</code> con el token en la query string.',
+        'GitHub Actions llega a <code>/hooks/v1/deployments</code> con <code>Authorization: Bearer</code>. Ambos tokens se comparan en tiempo constante.',
+        'Sólo se persisten los deploys <b>exitosos</b> del entorno <b>production</b>; el resto responde 204 y se descarta.',
+        'El alta es idempotente por <code>(provider, external_id)</code>: reintentar el webhook no duplica el marker.',
+        'La ruta de Railway se redacta en el log de acceso para no filtrar el token.',
+        'En la Bitácora, el marker queda superpuesto sobre la curva de errores — es la forma de ver si un deploy rompió algo.'
+      ]
+    },
+    {
+      id:'retention', title:'Retención y hardening', color:C_DB,
+      desc:'Limpieza automática de eventos viejos, cabeceras de seguridad, límites de cuerpo y sanitización en dos capas.',
+      segments:[
+        ['loop_retention','store','db_events']
+      ],
+      steps:[
+        'El <b>retention.Worker</b> corre al arrancar y luego cada 24 h, purgando los eventos anteriores a <code>EVENT_RETENTION_DAYS</code> (90 por defecto).',
+        'La sanitización ocurre dos veces: en el adapter de Go antes de persistir, y otra vez en Python antes de mandar nada al LLM.',
+        'Toda respuesta HTTP sale con <code>X-Content-Type-Options: nosniff</code>, <code>X-Frame-Options: DENY</code> y <code>Referrer-Policy</code>.',
+        'Los cuerpos se leen con <code>MaxBytesReader</code> y los decoders rechazan campos desconocidos.',
+        'El <code>X-Correlation-ID</code> se valida como UUID y se propaga de la API de Go al Interpreter de Python.',
+        'Los respaldos y la restauración viven en <code>deploy/scripts/</code>, con la base como única fuente de verdad.'
+      ]
+    }
+  ];
+
+  var STEP_LABELS = {
+    ext_sentry:'Sentry API', ext_aad:'Microsoft Entra ID', ext_azure:'Azure Log Analytics',
+    ext_probe_targets:'Endpoints públicos', ext_openrouter:'OpenRouter', ext_telegram:'Telegram Bot API',
+    ext_hc:'Healthchecks.io', ext_railway:'Railway (webhook)', ext_gha:'GitHub Actions (webhook)',
+    adp_sentry:'sentry.Client', adp_ai:'applicationinsights.Client',
+    loop_poller:'poller.Poller', loop_avail:'availability.Checker', loop_report:'reporting.Scheduler',
+    loop_meta:'meta.Monitor', loop_retention:'retention.Worker',
+    store:'store.Postgres',
+    db_catalog:'Catálogo e integraciones', db_events:'error_groups · error_events', db_jobs:'interpretation_jobs',
+    db_interp:'interpretations', db_alerts:'alert_windows · notification_jobs', db_reports:'daily_reports',
+    db_ops:'incidents · deployments', db_avail:'availability_*', db_meta:'service_heartbeats', db_sessions:'command_center_sessions',
+    w_interp:'interpreter.Worker', w_notif:'notification.Worker', w_report:'reporting.Worker', w_budget:'costs.BudgetMonitor',
+    cli_interp:'interpreter.Client', fmt_notif:'notification.Format', fmt_report:'reporting.Format', cli_telegram:'telegram.Client',
+    py_api:'FastAPI · /v1/interpretations', py_models:'models.py (contrato v1)', py_prompt:'prompt.py', py_or:'OpenRouterClient',
+    h_read:'Handlers de lectura', h_ops:'Handlers de bitácora', h_system:'Handlers de sistema',
+    h_public:'Status pública', h_hooks:'Webhooks de deploy',
+    mw_private:'private() — sesión', auth_svc:'auth.Service', http_mux:'Watchman API (Go)',
+    cf_proxy:'Cloudflare Pages Function', cc_api:'api.ts',
+    cc_login:'LoginPage', cc_overview:'OverviewPage', cc_events:'EventsPage', cc_ops:'OperationsPage',
+    cc_reports:'ReportsPage', cc_arch:'ArchitecturePage', cc_system:'SystemPage + CostCenter',
+    cc_status:'StatusPage (/status)', cc_diagrams:'Diagramas estáticos'
+  };
+
+  var CLUSTER_LABEL = {
+    ext:'Servicio externo', ingest:'Ingesta · Watchman', core:'Persistencia',
+    db:'PostgreSQL', worker:'Worker · salida', llm:'Interpreter · Python',
+    api:'API HTTP · Go', ui:'Command Center · React'
+  };
+  var LEGEND = [
+    {c:'#6b6c65', t:'Servicios externos'},
+    {c:'#ba8a40', t:'Adapters y loops del Watchman'},
+    {c:'#313979', t:'Capa de persistencia'},
+    {c:'#171b18', t:'Tablas de PostgreSQL'},
+    {c:'#005838', t:'Workers de cola y salida'},
+    {c:'#c1432e', t:'Interpreter (Python / LLM)'},
+    {c:'#4750a8', t:'API HTTP (Go)'},
+    {c:'#7079c2', t:'Command Center (React)'}
+  ];
+
+  /* =========================================================
+     8. RENDER
+  ========================================================= */
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  var svg = document.getElementById('svg');
+  var framesLayer = document.getElementById('framesLayer');
+  var labelsLayer = document.getElementById('labelsLayer');
+  var edgesLayer = document.getElementById('edgesLayer');
+  var nodesLayer = document.getElementById('nodesLayer');
+
+  function svgEl(tag, attrs){
+    var el = document.createElementNS(SVGNS, tag);
+    for(var k in attrs){ el.setAttribute(k, attrs[k]); }
+    return el;
+  }
+  function escapeHtml(s){
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // marcos de carril
+  LANE_FRAMES.forEach(function(f){
+    framesLayer.appendChild(svgEl('rect', {x:f.x, y:f.y, width:f.w, height:f.h, rx:8, 'class':'lane-frame'}));
+  });
+
+  // títulos y etiquetas
+  LANE_TITLES.forEach(function(l){
+    var t = svgEl('text', {x:l.x, y:l.y, 'text-anchor':'middle', 'class':'lane-title'});
+    t.textContent = l.t;
+    labelsLayer.appendChild(t);
+  });
+  ROW_LABELS.forEach(function(l){
+    var t = svgEl('text', {x:l.x, y:l.y, 'text-anchor':'end', 'class':'row-label'});
+    t.textContent = l.t;
+    labelsLayer.appendChild(t);
+  });
+
+  function anchorsFor(a, b){
+    var dx = b.x - a.x, dy = b.y - a.y;
+    if(Math.abs(dy) >= Math.abs(dx)){
+      var sy = dy >= 0 ? 1 : -1;
+      return [a.x, a.y + sy*a.h/2, b.x, b.y - sy*b.h/2];
+    }
+    var sx = dx >= 0 ? 1 : -1;
+    return [a.x + sx*a.w/2, a.y, b.x - sx*b.w/2, b.y];
+  }
+  function bezierPath(x1,y1,x2,y2){
+    var dx = x2-x1, dy = y2-y1;
+    if(Math.abs(dy) >= Math.abs(dx)){
+      var c = dy*0.5;
+      return 'M'+x1+','+y1+' C'+x1+','+(y1+c)+' '+x2+','+(y2-c)+' '+x2+','+y2;
+    }
+    var c2 = dx*0.5;
+    return 'M'+x1+','+y1+' C'+(x1+c2)+','+y1+' '+(x2-c2)+','+y2+' '+x2+','+y2;
+  }
+
+  // edges
+  EDGES.forEach(function(e){
+    var a = NODES[e.from], b = NODES[e.to];
+    if(!a || !b){ return; }
+    var p = anchorsFor(a,b);
+    var d = bezierPath(p[0],p[1],p[2],p[3]);
+    var g = svgEl('g', {'class':'edge-group'});
+    g.appendChild(svgEl('path', {'class':'edge-hit', d:d}));
+    var line = svgEl('path', {'class':'edge-line'+(e.dashed?' dashed-base':''), d:d, 'marker-end':'url(#arrow-default)'});
+    g.appendChild(line);
+    g.addEventListener('mouseenter', function(ev){ showTooltip(edgeTooltip(e), ev.clientX, ev.clientY); });
+    g.addEventListener('mousemove', function(ev){ moveTooltip(ev.clientX, ev.clientY); });
+    g.addEventListener('mouseleave', hideTooltip);
+    edgesLayer.appendChild(g);
+    e._el = line;
+  });
+
+  function edgeTooltip(e){
+    return {
+      kind:'Conexión',
+      title:(STEP_LABELS[e.from]||e.from) + '  →  ' + (STEP_LABELS[e.to]||e.to),
+      path:e.label || '',
+      desc:e.dashed ? 'Relación indirecta o diferida (no es una llamada sincrónica).' : ''
+    };
+  }
+
+  // nodes
+  Object.keys(NODES).forEach(function(id){
+    var n = NODES[id];
+    var g = svgEl('g', {'class':'node n-'+n.cluster, 'data-id':id, transform:'translate('+n.x+','+n.y+')'});
+    g.appendChild(svgEl('rect', {x:-n.w/2, y:-n.h/2, width:n.w, height:n.h, rx:6, ry:6, 'class':'body'}));
+    g.appendChild(svgEl('rect', {x:-n.w/2, y:-n.h/2, width:3.5, height:n.h, 'class':'bar'}));
+
+    var totalH = 0;
+    n.lines.forEach(function(l){ totalH += LINE_H[l.k]; });
+    var cy = -totalH/2 + LINE_H[n.lines[0].k]*0.74;
+    n.lines.forEach(function(l, i){
+      if(i > 0){ cy += LINE_H[n.lines[i-1].k]; }
+      var t = svgEl('text', {x:2, y:cy, 'text-anchor':'middle', 'font-size':FONT_SIZE[l.k], 'class':'l-'+l.k});
+      t.textContent = l.t;
+      g.appendChild(t);
+    });
+
+    var data = nodeTooltip(id, n);
+    g.addEventListener('mouseenter', function(ev){ showTooltip(data, ev.clientX, ev.clientY); });
+    g.addEventListener('mousemove', function(ev){ moveTooltip(ev.clientX, ev.clientY); });
+    g.addEventListener('mouseleave', hideTooltip);
+    g.addEventListener('click', function(ev){ ev.stopPropagation(); pinTooltip(data, ev.clientX, ev.clientY); });
+
+    nodesLayer.appendChild(g);
+    n._el = g;
+  });
+
+  function nodeTooltip(id, n){
+    var sub = '';
+    for(var i=0;i<n.lines.length;i++){ if(n.lines[i].k==='sub'){ sub = n.lines[i].t; break; } }
+    var second = n.lines.length > 1 && n.lines[1].k==='title2' ? n.lines[1].t : '';
+    return {
+      kind:CLUSTER_LABEL[n.cluster] || '',
+      title:n.lines[0].t + (second ? ' · ' + second : ''),
+      path:sub,
+      desc:n.desc || ''
+    };
+  }
+
+  // leyenda
+  var legendBody = document.getElementById('legendBody');
+  LEGEND.forEach(function(item){
+    var row = document.createElement('div');
+    row.className = 'legend-row';
+    row.innerHTML = '<span class="legend-swatch" style="background:'+item.c+'"></span>'+escapeHtml(item.t);
+    legendBody.appendChild(row);
+  });
+  var note = document.createElement('div');
+  note.className = 'legend-note';
+  note.textContent = 'Las flechas van del que llama al que es llamado. La línea punteada indica una relación diferida o indirecta. El carril izquierdo baja (ingesta → alerta); el derecho sube (pantalla → API → base).';
+  legendBody.appendChild(note);
+
+  /* =========================================================
+     9. TOOLTIP
+  ========================================================= */
+  var tooltip = document.getElementById('tooltip');
+  var pinned = false;
+
+  function renderTooltip(data){
+    var html = '';
+    if(data.kind) html += '<span class="tt-kind">'+escapeHtml(data.kind)+'</span>';
+    html += '<div class="tt-title">'+escapeHtml(data.title)+'</div>';
+    if(data.path) html += '<div class="tt-path">'+escapeHtml(data.path)+'</div>';
+    if(data.desc) html += '<div class="tt-desc">'+escapeHtml(data.desc)+'</div>';
+    tooltip.innerHTML = html;
+  }
+  function showTooltip(data, x, y){
+    if(pinned) return;
+    renderTooltip(data);
+    tooltip.classList.add('show');
+    moveTooltip(x,y);
+  }
+  function moveTooltip(x, y){
+    var pad = 16;
+    var r = tooltip.getBoundingClientRect();
+    var left = x + pad, top = y + pad;
+    if(left + r.width + 10 > window.innerWidth) left = x - r.width - pad;
+    if(top + r.height + 10 > window.innerHeight) top = y - r.height - pad;
+    tooltip.style.left = Math.max(6,left)+'px';
+    tooltip.style.top = Math.max(6,top)+'px';
+  }
+  function hideTooltip(){
+    if(pinned) return;
+    tooltip.classList.remove('show');
+  }
+  function pinTooltip(data, x, y){
+    renderTooltip(data);
+    tooltip.innerHTML += '<div class="tt-pin">Click en el fondo del diagrama para cerrar</div>';
+    tooltip.classList.add('show');
+    pinned = true;
+    moveTooltip(x,y);
+  }
+  function unpinTooltip(){
+    pinned = false;
+    tooltip.classList.remove('show');
+  }
+
+  /* =========================================================
+     10. SELECCIÓN DE FLUJOS
+  ========================================================= */
+  var activeFlow = null;
+  var flowListEl = document.getElementById('flowList');
+  var activeFlowPill = document.getElementById('activeFlowPill');
+  var activeFlowLabel = document.getElementById('activeFlowLabel');
+
+  FLOWS.forEach(function(flow, idx){
+    var card = document.createElement('div');
+    card.className = 'flow-card';
+    card.dataset.flowId = flow.id;
+    card.style.setProperty('--flow-color', flow.color);
+
+    var row = document.createElement('div');
+    row.className = 'row';
+    var badge = document.createElement('div');
+    badge.className = 'flow-badge';
+    badge.style.background = flow.color;
+    badge.textContent = String(idx+1);
+    var title = document.createElement('div');
+    title.className = 'title';
+    title.textContent = flow.title;
+    row.appendChild(badge);
+    row.appendChild(title);
+
+    var desc = document.createElement('div');
+    desc.className = 'desc';
+    desc.textContent = flow.desc;
+
+    var steps = document.createElement('div');
+    steps.className = 'steps';
+    flow.steps.forEach(function(s, i){
+      var el = document.createElement('div');
+      el.className = 'step-line';
+      var num = document.createElement('span');
+      num.className = 'step-num';
+      num.textContent = String(i+1);
+      var txt = document.createElement('span');
+      txt.innerHTML = s;
+      el.appendChild(num);
+      el.appendChild(txt);
+      steps.appendChild(el);
+    });
+
+    card.appendChild(row);
+    card.appendChild(desc);
+    card.appendChild(steps);
+    card.addEventListener('click', function(){
+      setActiveFlow(activeFlow === flow.id ? null : flow.id);
+    });
+    flowListEl.appendChild(card);
+  });
+
+  var dynamicLabels = [];
+  function clearDynamicLabels(){
+    dynamicLabels.forEach(function(el){ el.remove(); });
+    dynamicLabels = [];
+  }
+
+  function setActiveFlow(flowId){
+    activeFlow = flowId;
+    var cards = document.querySelectorAll('.flow-card');
+    for(var i=0;i<cards.length;i++){
+      cards[i].classList.toggle('active', cards[i].dataset.flowId === flowId);
+    }
+    clearDynamicLabels();
+
+    if(!flowId){
+      Object.keys(NODES).forEach(function(id){
+        NODES[id]._el.classList.remove('dimmed','active-node');
+        removeStepBadge(NODES[id]);
+      });
+      EDGES.forEach(function(e){
+        if(!e._el) return;
+        e._el.classList.remove('dimmed','active-edge');
+        e._el.setAttribute('marker-end','url(#arrow-default)');
+      });
+      activeFlowPill.classList.remove('show');
+      return;
+    }
+
+    var flow = null;
+    for(var f=0;f<FLOWS.length;f++){ if(FLOWS[f].id===flowId){ flow = FLOWS[f]; break; } }
+    if(!flow) return;
+
+    var activeNodes = {}, activeEdges = {}, order = {}, counter = 0;
+    flow.segments.forEach(function(seg){
+      seg.forEach(function(id){
+        if(!(id in order)){ order[id] = ++counter; }
+        activeNodes[id] = 1;
+      });
+      for(var i=0;i<seg.length-1;i++){
+        var idx = edgeIndex[seg[i]+'>'+seg[i+1]];
+        if(idx !== undefined) activeEdges[idx] = 1;
+      }
+    });
+
+    Object.keys(NODES).forEach(function(id){
+      var n = NODES[id];
+      if(activeNodes[id]){
+        n._el.classList.remove('dimmed');
+        n._el.classList.add('active-node');
+        addStepBadge(n, order[id], flow.color);
+      } else {
+        n._el.classList.add('dimmed');
+        n._el.classList.remove('active-node');
+        removeStepBadge(n);
+      }
+    });
+
+    EDGES.forEach(function(e, i){
+      if(!e._el) return;
+      if(activeEdges[i]){
+        e._el.classList.remove('dimmed');
+        e._el.classList.add('active-edge');
+        e._el.setAttribute('marker-end','url(#arrow-active)');
+        if(e.label) addEdgeLabel(e);
+      } else {
+        e._el.classList.add('dimmed');
+        e._el.classList.remove('active-edge');
+        e._el.setAttribute('marker-end','url(#arrow-default)');
+      }
+    });
+
+    activeFlowLabel.textContent = flow.title;
+    activeFlowPill.classList.add('show');
+  }
+
+  function addEdgeLabel(e){
+    try{
+      var len = e._el.getTotalLength();
+      var pt = e._el.getPointAtLength(len/2);
+      var w = Math.min(280, e.label.length*5.8 + 14);
+      var bg = svgEl('rect', {x:pt.x-w/2, y:pt.y-9, width:w, height:16, rx:3, 'class':'edge-label-bg'});
+      var t = svgEl('text', {x:pt.x, y:pt.y+2.5, 'text-anchor':'middle', 'class':'edge-label'});
+      t.textContent = e.label;
+      edgesLayer.appendChild(bg);
+      edgesLayer.appendChild(t);
+      dynamicLabels.push(bg, t);
+    }catch(err){ /* la ruta todavía no tiene longitud medible */ }
+  }
+
+  function addStepBadge(n, num, color){
+    removeStepBadge(n);
+    var g = svgEl('g', {'class':'step-badge', transform:'translate('+(n.w/2-5)+','+(-n.h/2+5)+')'});
+    g.appendChild(svgEl('circle', {r:9.5, fill:color || '#4750a8'}));
+    var t = svgEl('text', {x:0, y:3.5, 'text-anchor':'middle', 'font-size':10});
+    t.textContent = num;
+    g.appendChild(t);
+    n._el.appendChild(g);
+    n._badge = g;
+  }
+  function removeStepBadge(n){
+    if(n._badge){ n._badge.remove(); n._badge = null; }
+  }
+
+  document.getElementById('clearFlowBtn').addEventListener('click', function(){ setActiveFlow(null); });
+
+  /* =========================================================
+     11. PAN & ZOOM
+  ========================================================= */
+  var viewport = document.getElementById('viewport');
+  var pane = document.getElementById('diagramPane');
+  var pan = {x:0, y:0, k:1};
+  var isPanning = false, lastPt = null;
+
+  function applyTransform(){
+    viewport.setAttribute('transform','translate('+pan.x+','+pan.y+') scale('+pan.k+')');
+    document.getElementById('zoomLevel').textContent = Math.round(pan.k*100)+'%';
+  }
+  function screenToSVG(clientX, clientY){
+    var pt = svg.createSVGPoint();
+    pt.x = clientX; pt.y = clientY;
+    var ctm = svg.getScreenCTM();
+    if(!ctm) return {x:0,y:0};
+    return pt.matrixTransform(ctm.inverse());
+  }
+  function zoomAt(clientX, clientY, factor){
+    var p = screenToSVG(clientX, clientY);
+    var lx = (p.x - pan.x)/pan.k, ly = (p.y - pan.y)/pan.k;
+    var k = Math.min(3.5, Math.max(0.25, pan.k*factor));
+    pan.x = p.x - lx*k;
+    pan.y = p.y - ly*k;
+    pan.k = k;
+    applyTransform();
+  }
+
+  pane.addEventListener('wheel', function(ev){
+    ev.preventDefault();
+    zoomAt(ev.clientX, ev.clientY, ev.deltaY < 0 ? 1.12 : 0.89);
+  }, {passive:false});
+
+  pane.addEventListener('mousedown', function(ev){
+    if(ev.target.closest('.node') || ev.target.closest('.edge-group')) return;
+    isPanning = true;
+    pane.classList.add('panning');
+    lastPt = screenToSVG(ev.clientX, ev.clientY);
+  });
+  window.addEventListener('mousemove', function(ev){
+    if(!isPanning) return;
+    var p = screenToSVG(ev.clientX, ev.clientY);
+    pan.x += (p.x - lastPt.x);
+    pan.y += (p.y - lastPt.y);
+    lastPt = p;
+    applyTransform();
+  });
+  window.addEventListener('mouseup', function(){
+    isPanning = false;
+    pane.classList.remove('panning');
+  });
+
+  pane.addEventListener('touchstart', function(ev){
+    if(ev.touches.length !== 1) return;
+    var t = ev.touches[0];
+    if(t.target.closest('.node') || t.target.closest('.edge-group')) return;
+    isPanning = true;
+    lastPt = screenToSVG(t.clientX, t.clientY);
+  }, {passive:true});
+  pane.addEventListener('touchmove', function(ev){
+    if(!isPanning || ev.touches.length !== 1) return;
+    var t = ev.touches[0];
+    var p = screenToSVG(t.clientX, t.clientY);
+    pan.x += (p.x - lastPt.x);
+    pan.y += (p.y - lastPt.y);
+    lastPt = p;
+    applyTransform();
+  }, {passive:true});
+  pane.addEventListener('touchend', function(){ isPanning = false; });
+
+  function centerZoom(factor){
+    var r = pane.getBoundingClientRect();
+    zoomAt(r.left + r.width/2, r.top + r.height/2, factor);
+  }
+  document.getElementById('zoomIn').addEventListener('click', function(){ centerZoom(1.25); });
+  document.getElementById('zoomOut').addEventListener('click', function(){ centerZoom(0.8); });
+  document.getElementById('zoomReset').addEventListener('click', function(){
+    pan = {x:0, y:0, k:1};
+    applyTransform();
+  });
+  document.getElementById('fitBtn').addEventListener('click', function(){
+    pan = {x:0, y:0, k:1};
+    applyTransform();
+    setActiveFlow(null);
+  });
+
+  pane.addEventListener('click', function(ev){
+    if(ev.target.closest('.node') || ev.target.closest('.edge-group')) return;
+    unpinTooltip();
+  });
+  document.addEventListener('keydown', function(ev){
+    if(ev.key === 'Escape'){ setActiveFlow(null); unpinTooltip(); }
+  });
+
+  /* =========================================================
+     12. STATS
+  ========================================================= */
+  document.getElementById('legendHead').addEventListener('click', function(){
+    document.getElementById('legend').classList.toggle('collapsed');
+  });
+
+  document.getElementById('statsLine').textContent =
+    Object.keys(NODES).length + ' componentes · ' + EDGES.length + ' conexiones · ' +
+    FLOWS.length + ' flujos trazados · Go 1.26 + Python 3.13 + React 19 + PostgreSQL 18';
+
+  applyTransform();
+})();
+</script>
+</body>
+</html>

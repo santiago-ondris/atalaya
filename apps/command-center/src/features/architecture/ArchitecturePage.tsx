@@ -52,6 +52,16 @@ export const architectureApps: ArchitectureApp[] = [
     htmlUrl: '/diagrams/arquitectura-wheelshouse.html',
     brandColor: '#BF247A',
   },
+  {
+    slug: 'atalaya',
+    aliases: ['atalaya', 'watchman', 'interpreter', 'command_center'],
+    displayName: 'Atalaya',
+    badge: 'Meta-observabilidad',
+    stack: 'Go / Python / React / PostgreSQL',
+    deploy: 'Railway + Cloudflare Pages',
+    htmlUrl: '/diagrams/arquitectura-atalaya.html',
+    brandColor: '#4750A8',
+  },
 ]
 
 interface ArchitecturePageProps {
