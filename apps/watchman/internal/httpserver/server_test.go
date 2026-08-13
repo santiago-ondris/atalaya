@@ -72,7 +72,6 @@ func (database stubDatabase) GetCostSummary(context.Context, float64) (domain.Co
 	return domain.CostSummary{}, database.err
 }
 
-
 type recordingDatabase struct {
 	stubDatabase
 	filter store.EventFilter

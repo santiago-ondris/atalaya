@@ -10,7 +10,6 @@ import (
 	"syscall"
 	"time"
 
-
 	"github.com/jackc/pgx/v5/pgxpool"
 	applicationinsights "github.com/santiago-ondris/atalaya/apps/watchman/internal/applicationinsights"
 	"github.com/santiago-ondris/atalaya/apps/watchman/internal/auth"
@@ -161,7 +160,6 @@ func main() {
 
 	// Budget monitor
 	budgetMonitor := costs.NewBudgetMonitor(postgresStore, telegramClient, cfg.LLMMonthlyBudgetUSD, logger)
-
 
 	authService := auth.New(postgresStore, cfg.Auth.PasswordHash, cfg.Auth.SessionDuration)
 	server := httpserver.New(cfg.HTTPAddress, databaseWithQueries{Pool: pool, Postgres: postgresStore}, authService, logger, cfg.ReadinessTimeout, cfg.Auth.CookieSecure)

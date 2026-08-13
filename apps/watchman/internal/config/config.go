@@ -381,4 +381,3 @@ func floatFromEnv(key string, fallback float64) (float64, error) {
 	}
 	return val, nil
 }
-

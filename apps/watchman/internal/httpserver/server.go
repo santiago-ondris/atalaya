@@ -56,7 +56,7 @@ type Server struct {
 	budgetMonitor    interface {
 		CheckBudget(context.Context) (domain.CostSummary, error)
 	}
-	healthProvider   interface {
+	healthProvider interface {
 		Health(context.Context) (meta.Health, error)
 	}
 }
@@ -95,7 +95,6 @@ func New(address string, database Database, authService *auth.Service, logger *s
 	mux.Handle("GET /api/v1/system/costs", server.private(http.HandlerFunc(server.systemCosts)))
 	mux.HandleFunc("POST /hooks/v1/deployments", server.ingestDeployment)
 	mux.HandleFunc("POST /hooks/v1/deployments/railway/{application}/{component}", server.ingestRailwayDeployment)
-
 
 	server.httpServer = &http.Server{
 		Addr:              address,

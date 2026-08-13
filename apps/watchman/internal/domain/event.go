@@ -187,4 +187,3 @@ type CostSummary struct {
 	ByApplication     []ApplicationCostBreakdown `json:"by_application"`
 	ByModel           []ModelCostBreakdown       `json:"by_model"`
 }
-

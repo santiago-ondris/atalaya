@@ -943,4 +943,3 @@ func (store *Postgres) PurgeOldEvents(ctx context.Context, retentionDays int) (i
 	}
 	return res.RowsAffected(), nil
 }
-
