@@ -99,12 +99,12 @@ export function StatusPage() {
           <section className="incident-log">
             <p className="eyebrow">BITÁCORA PÚBLICA</p>
             <h2>Incidentes recientes</h2>
-            {data.incidents.length === 0 ? (
+            {(data.incidents ?? []).length === 0 ? (
               <p className="quiet">
                 No hay incidentes publicados en los últimos 30 días.
               </p>
             ) : (
-              data.incidents.map((item) => (
+              (data.incidents ?? []).map((item) => (
                 <article key={item.id}>
                   <div>
                     <h3>{item.title}</h3>

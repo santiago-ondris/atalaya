@@ -32,7 +32,7 @@ func cleanPublicText(value string) string {
 }
 
 func (s *Postgres) PublicStatus(ctx context.Context, now time.Time) (PublicStatus, error) {
-	result := PublicStatus{Applications: []PublicApplicationStatus{}}
+	result := PublicStatus{Applications: []PublicApplicationStatus{}, Incidents: []PublicIncident{}}
 	rows, err := s.pool.Query(ctx, `WITH catalog(slug,name,ord) AS (VALUES ('farmami','Farmami',1),('wheels_house','Wheels House',2),('prensap','Prensap',3),('notizap','Notizap',4))
 		SELECT c.slug,c.name,t.component,COALESCE(t.confirmed_status,'unknown'),t.last_checked_at
 		FROM catalog c LEFT JOIN availability_targets t ON t.application=c.slug ORDER BY c.ord,t.component`)
