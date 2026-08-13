@@ -458,7 +458,15 @@ Alcance: Preguntarme en el momento.
 **Estado:** completado el 2026-08-11. 
  
 ### Sprint 10 — Status público y meta-observabilidad
- 
+
+**Estado:** completado el 2026-08-12. Los ocho objetivos de disponibilidad están
+configurados en producción; Watchman, PostgreSQL y la API pública se validaron en
+Railway. La página `/status` está desplegada en Cloudflare Pages con proxy del
+mismo origen. El dead man's switch de Healthchecks.io recibe heartbeats y su
+integración de Telegram fue probada correctamente. Ver
+`docs/sprints/sprint-10-status-meta-observability-walkthrough.md` y
+`docs/adr/0010-status-publico-y-meta-observabilidad.md`.
+
 **Objetivo:** hacer visible la salud de las aplicaciones y detectar cuando el propio observador falla.
  
 Alcance:
@@ -527,12 +535,10 @@ Cada decisión importante quedará documentada mediante un ADR.
  
 No todo bloquea el Sprint 0, pero deberá resolverse en el sprint indicado:
  
-- Confirmar health endpoints existentes en las cuatro aplicaciones.
 - Identificar organización, proyecto y permisos API de cada integración Sentry.
 - Identificar workspace, application ID y permisos de consulta de Application Insights.
 - Definir el chat privado o grupo de Telegram que recibirá alertas.
 - Elegir el modelo inicial de OpenRouter y un presupuesto mensual orientativo.
-- Definir dominio/subdominios para command center, API y status público.
 - Acordar política inicial de retención de datos.
 - Definir qué campos pueden contener datos sensibles de clientes y cómo sanitizarlos.
 ---
