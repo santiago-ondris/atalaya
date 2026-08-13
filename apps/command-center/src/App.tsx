@@ -67,11 +67,14 @@ export default function App() {
 
 function AuthGuard() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null)
+  const visualDemo =
+    import.meta.env.DEV && new URLSearchParams(window.location.search).has('weather')
 
   useEffect(() => {
     void checkSession().then(setAuthenticated)
   }, [])
 
+  if (visualDemo) return <Outlet context={{ logout: async () => undefined }} />
   if (authenticated === null) return <LoadingState />
   if (!authenticated) return <LoginPage onSuccess={() => setAuthenticated(true)} />
 

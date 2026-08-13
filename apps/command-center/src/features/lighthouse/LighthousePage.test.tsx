@@ -5,6 +5,20 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.mock('./scene/LighthouseScene', () => ({
   LighthouseScene: () => <div data-testid="scene" />,
 }))
+vi.mock('./useLighthouseHealth', () => ({
+  demoWeather: () => null,
+  useLighthouseHealth: () => ({
+    weather: 'mist',
+    system: { severity: 'yellow', freshness: 'stale' },
+    applications: {
+      farmami: { slug: 'farmami', severity: 'green', freshness: 'fresh' },
+      wheels_house: { slug: 'wheels_house', severity: 'yellow', freshness: 'stale' },
+      prensap: { slug: 'prensap', severity: 'red', freshness: 'fresh' },
+      notizap: { slug: 'notizap', severity: 'green', freshness: 'fresh' },
+      atalaya: { slug: 'atalaya', severity: 'yellow', freshness: 'stale' },
+    },
+  }),
+}))
 
 import { LighthouseCover, LighthousePage, SceneBoundary } from './LighthousePage'
 
@@ -63,6 +77,13 @@ describe('lighthouse loading and recovery', () => {
       '/reports',
       '/system',
     ])
+    expect(screen.getByRole('link', { name: 'Farmami: operativo' })).toBeVisible()
+    expect(
+      screen.getByRole('link', {
+        name: 'Wheels House: estado degradado o desconocido, datos desactualizados',
+      }),
+    ).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Eventos' })).toHaveAccessibleName('Eventos')
 
     fireEvent.focus(screen.getByRole('link', { name: 'Eventos' }))
     expect(screen.getByText('Eventos', { selector: '.destination-label' })).toBeVisible()

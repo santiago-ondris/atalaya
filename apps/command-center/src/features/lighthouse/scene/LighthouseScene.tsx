@@ -8,14 +8,26 @@ import {
   DoubleSide,
   Float32BufferAttribute,
   Group,
+  Fog,
+  HemisphereLight,
+  AmbientLight,
+  DirectionalLight,
   Mesh,
+  MeshStandardMaterial,
   PlaneGeometry,
+  PointsMaterial,
   Shape,
 } from 'three'
 import { findDestination } from '../destinations'
+import type {
+  ApplicationVisualState,
+  LighthouseVisualState,
+  WeatherLevel,
+} from '../lighthouseState'
 
 interface LighthouseSceneProps {
   still: boolean
+  visualState: LighthouseVisualState
   activeDestination: string | null
   onDestinationChange: (id: string | null) => void
   onNavigate: (route: string) => void
@@ -23,6 +35,7 @@ interface LighthouseSceneProps {
 
 export function LighthouseScene({
   still,
+  visualState,
   activeDestination,
   onDestinationChange,
   onNavigate,
@@ -46,24 +59,11 @@ export function LighthouseScene({
           gl.shadowMap.autoUpdate = !still
         }}
       >
-        <fog attach="fog" args={['#071627', 20, 46]} />
-        <hemisphereLight args={['#7180b5', '#07110f', 1.15]} />
-        <ambientLight intensity={0.35} color="#7180b5" />
-        <directionalLight
-          castShadow
-          position={[-8, 14, 8]}
-          intensity={2.2}
-          color="#d9e2ff"
-          shadow-mapSize={[1024, 1024]}
-          shadow-camera-far={38}
-          shadow-camera-left={-14}
-          shadow-camera-right={14}
-          shadow-camera-top={14}
-          shadow-camera-bottom={-14}
-        />
+        <Atmosphere weather={visualState.weather} frozen={frozen} />
         <pointLight position={[0, 8.8, 0]} intensity={12} distance={19} color="#ffe39a" />
         <Scene
           frozen={frozen}
+          visualState={visualState}
           activeDestination={activeDestination}
           onDestinationChange={onDestinationChange}
           onNavigate={onNavigate}
@@ -91,20 +91,109 @@ interface InteractionProps {
   onNavigate: (route: string) => void
 }
 
-function Scene({ frozen, ...interaction }: { frozen: boolean } & InteractionProps) {
+function Scene({
+  frozen,
+  visualState,
+  ...interaction
+}: { frozen: boolean; visualState: LighthouseVisualState } & InteractionProps) {
   return (
     <>
-      <Stars />
-      <Sea frozen={frozen} />
+      <Stars weather={visualState.weather} frozen={frozen} />
+      <CloudBanks weather={visualState.weather} frozen={frozen} />
+      <Sea frozen={frozen} weather={visualState.weather} />
       <Island />
-      <Lighthouse frozen={frozen} {...interaction} />
+      <Lighthouse
+        frozen={frozen}
+        applications={visualState.applications}
+        {...interaction}
+      />
       <NarrativeFleet frozen={frozen} {...interaction} />
       <DecorativeFleet frozen={frozen} />
     </>
   )
 }
 
-function Stars() {
+const weatherSettings = {
+  clear: {
+    sky: '#071627',
+    fogNear: 22,
+    fogFar: 48,
+    stars: 0.94,
+    cloud: 0.08,
+    wave: 1,
+    sea: '#ffffff',
+    light: 2.2,
+  },
+  mist: {
+    sky: '#152335',
+    fogNear: 14,
+    fogFar: 38,
+    stars: 0.42,
+    cloud: 0.24,
+    wave: 1.18,
+    sea: '#c3ccd0',
+    light: 1.75,
+  },
+  storm: {
+    sky: '#091827',
+    fogNear: 13,
+    fogFar: 36,
+    stars: 0.14,
+    cloud: 0.42,
+    wave: 1.55,
+    sea: '#87949d',
+    light: 1.75,
+  },
+} as const
+
+function Atmosphere({ weather, frozen }: { weather: WeatherLevel; frozen: boolean }) {
+  const fog = useRef<Fog>(null)
+  const hemisphere = useRef<HemisphereLight>(null)
+  const ambient = useRef<AmbientLight>(null)
+  const directional = useRef<DirectionalLight>(null)
+  const target = weatherSettings[weather]
+  useFrame((state, delta) => {
+    const factor = frozen ? 1 : 1 - Math.exp(-delta * 1.6)
+    if (fog.current) {
+      fog.current.color.lerp(new Color(target.sky), factor)
+      fog.current.near += (target.fogNear - fog.current.near) * factor
+      fog.current.far += (target.fogFar - fog.current.far) * factor
+    }
+    const background = state.gl.getClearColor(new Color())
+    state.gl.setClearColor(background.lerp(new Color(target.sky), factor))
+    if (hemisphere.current)
+      hemisphere.current.intensity += (1.15 - hemisphere.current.intensity) * factor
+    if (ambient.current)
+      ambient.current.intensity +=
+        ((weather === 'storm' ? 0.3 : 0.35) - ambient.current.intensity) * factor
+    if (directional.current)
+      directional.current.intensity +=
+        (target.light - directional.current.intensity) * factor
+  })
+  return (
+    <>
+      <fog ref={fog} attach="fog" args={[target.sky, target.fogNear, target.fogFar]} />
+      <hemisphereLight ref={hemisphere} args={['#7180b5', '#07110f', 1.15]} />
+      <ambientLight ref={ambient} intensity={0.35} color="#7180b5" />
+      <directionalLight
+        ref={directional}
+        castShadow
+        position={[-8, 14, 8]}
+        intensity={target.light}
+        color="#d9e2ff"
+        shadow-mapSize={[1024, 1024]}
+        shadow-camera-far={38}
+        shadow-camera-left={-14}
+        shadow-camera-right={14}
+        shadow-camera-top={14}
+        shadow-camera-bottom={-14}
+      />
+    </>
+  )
+}
+
+function Stars({ weather, frozen }: { weather: WeatherLevel; frozen: boolean }) {
+  const material = useRef<PointsMaterial>(null)
   const positions = useMemo(() => {
     const values: number[] = []
     let seed = 17
@@ -119,18 +208,33 @@ function Stars() {
     }
     return new Float32Array(values)
   }, [])
+  useFrame((_, delta) => {
+    if (!material.current) return
+    const target = weatherSettings[weather].stars
+    material.current.opacity +=
+      (target - material.current.opacity) * (frozen ? 1 : 1 - Math.exp(-delta * 1.8))
+  })
   return (
     <points raycast={() => null}>
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
-      <pointsMaterial color="#f5efcf" size={0.08} sizeAttenuation />
+      <pointsMaterial
+        ref={material}
+        color="#f5efcf"
+        size={0.08}
+        sizeAttenuation
+        transparent
+        opacity={weatherSettings[weather].stars}
+      />
     </points>
   )
 }
 
-function Sea({ frozen }: { frozen: boolean }) {
+function Sea({ frozen, weather }: { frozen: boolean; weather: WeatherLevel }) {
   const mesh = useRef<Mesh<PlaneGeometry>>(null)
+  const material = useRef<MeshStandardMaterial>(null)
+  const wave = useRef(weatherSettings[weather].wave)
   const geometry = useMemo(() => {
     const value = new PlaneGeometry(48, 48, 48, 48)
     value.rotateX(-Math.PI / 2)
@@ -156,7 +260,11 @@ function Sea({ frozen }: { frozen: boolean }) {
   )
 
   useFrame(({ clock }) => {
-    if (frozen || !mesh.current) return
+    if (!mesh.current) return
+    const target = weatherSettings[weather]
+    wave.current += (target.wave - wave.current) * (frozen ? 1 : 0.025)
+    material.current?.color.lerp(new Color(target.sea), frozen ? 1 : 0.025)
+    if (frozen) return
     const position = mesh.current.geometry.attributes.position as BufferAttribute
     const elapsed = clock.elapsedTime
     for (let index = 0; index < position.count; index += 1) {
@@ -165,8 +273,9 @@ function Sea({ frozen }: { frozen: boolean }) {
       const z = base[offset + 2]
       position.setY(
         index,
-        Math.sin(x * 0.62 + elapsed * 0.55) * 0.12 +
-          Math.cos(z * 0.48 - elapsed * 0.4) * 0.08,
+        (Math.sin(x * 0.62 + elapsed * 0.55) * 0.12 +
+          Math.cos(z * 0.48 - elapsed * 0.4) * 0.08) *
+          wave.current,
       )
     }
     position.needsUpdate = true
@@ -183,6 +292,7 @@ function Sea({ frozen }: { frozen: boolean }) {
         raycast={() => null}
       >
         <meshStandardMaterial
+          ref={material}
           color="#ffffff"
           vertexColors
           roughness={0.68}
@@ -192,6 +302,33 @@ function Sea({ frozen }: { frozen: boolean }) {
         />
       </mesh>
     </>
+  )
+}
+
+function CloudBanks({ weather, frozen }: { weather: WeatherLevel; frozen: boolean }) {
+  const material = useRef<MeshStandardMaterial>(null)
+  useFrame((_, delta) => {
+    if (material.current)
+      material.current.opacity +=
+        (weatherSettings[weather].cloud - material.current.opacity) *
+        (frozen ? 1 : 1 - Math.exp(-delta * 1.4))
+  })
+  return (
+    <group position={[0, 10, -17]} raycast={() => null}>
+      {[-13, -7, 0, 8, 14].map((x, index) => (
+        <mesh key={x} position={[x, index % 2, -index]} scale={[5.2, 0.75, 1.6]}>
+          <sphereGeometry args={[1, 10, 6]} />
+          <meshStandardMaterial
+            ref={index === 0 ? material : undefined}
+            color="#8090a0"
+            transparent
+            opacity={weatherSettings[weather].cloud}
+            depthWrite={false}
+            roughness={1}
+          />
+        </mesh>
+      ))}
+    </group>
   )
 }
 
@@ -278,7 +415,14 @@ function CoastalRocks() {
   )
 }
 
-function Lighthouse({ frozen, ...interaction }: { frozen: boolean } & InteractionProps) {
+function Lighthouse({
+  frozen,
+  applications,
+  ...interaction
+}: {
+  frozen: boolean
+  applications: LighthouseVisualState['applications']
+} & InteractionProps) {
   const beam = useRef<Group>(null)
   useFrame(({ clock }) => {
     if (!frozen && beam.current)
@@ -308,7 +452,7 @@ function Lighthouse({ frozen, ...interaction }: { frozen: boolean } & Interactio
         <coneGeometry args={[1.25, 1.05, 12]} />
         <meshStandardMaterial color="#8f332b" roughness={0.78} flatShading />
       </mesh>
-      <Windows {...interaction} />
+      <Windows applications={applications} {...interaction} />
       <group ref={beam} position={[0, 5.95, 0]} rotation={[0, -0.35, 0]}>
         <mesh position={[3.6, 0, 0]} rotation={[0, 0, -Math.PI / 2]} raycast={() => null}>
           <coneGeometry args={[0.82, 7.2, 24, 1, true]} />
@@ -325,7 +469,10 @@ function Lighthouse({ frozen, ...interaction }: { frozen: boolean } & Interactio
   )
 }
 
-function Windows(interaction: InteractionProps) {
+function Windows({
+  applications,
+  ...interaction
+}: { applications: LighthouseVisualState['applications'] } & InteractionProps) {
   const windows = [
     { id: 'farmami', height: 1.72, angle: -0.22 },
     { id: 'wheels_house', height: 2.55, angle: -0.1 },
@@ -344,7 +491,10 @@ function Windows(interaction: InteractionProps) {
         ]
         return (
           <group key={window.id} position={position} rotation={[0, window.angle, 0]}>
-            <ArchitecturalWindow active={interaction.activeDestination === window.id} />
+            <ArchitecturalWindow
+              state={applications[window.id as keyof typeof applications]}
+              active={interaction.activeDestination === window.id}
+            />
             <DestinationHitbox
               id={window.id}
               size={[1.08, 0.92, 0.62]}
@@ -357,12 +507,25 @@ function Windows(interaction: InteractionProps) {
   )
 }
 
-function ArchitecturalWindow({ active }: { active: boolean }) {
+function ArchitecturalWindow({
+  active,
+  state,
+}: {
+  active: boolean
+  state: ApplicationVisualState
+}) {
   const shapes = useMemo(() => {
     const outer = archedWindowShape(0.62, 0.72)
     const inner = archedWindowShape(0.42, 0.55)
     return { outer, inner }
   }, [])
+  const colors =
+    state.severity === 'green'
+      ? { glass: '#6fd69e', glow: '#198553' }
+      : state.severity === 'red'
+        ? { glass: '#ff7964', glow: '#c1432e' }
+        : { glass: '#ffe478', glow: '#ba8a40' }
+  const dimmed = state.freshness === 'stale'
   return (
     <group>
       <mesh raycast={() => null} position={[0, -0.08, 0]}>
@@ -383,12 +546,18 @@ function ArchitecturalWindow({ active }: { active: boolean }) {
       <mesh raycast={() => null} position={[0.1, 0, 0.105]} scale={0.78}>
         <extrudeGeometry args={[shapes.inner, { depth: 0.04, bevelEnabled: false }]} />
         <meshStandardMaterial
-          color={active ? '#fff0b8' : '#d8b95d'}
-          emissive={active ? '#d89b38' : '#72582e'}
-          emissiveIntensity={active ? 1.8 : 0.72}
+          color={colors.glass}
+          emissive={colors.glow}
+          emissiveIntensity={(active ? 2 : 1.25) * (dimmed ? 0.48 : 1)}
           roughness={0.38}
         />
       </mesh>
+      {dimmed && (
+        <mesh raycast={() => null} position={[0.31, 0, 0.2]}>
+          <torusGeometry args={[0.5, 0.025, 4, 10]} />
+          <meshBasicMaterial color="#e0a13d" wireframe transparent opacity={0.9} />
+        </mesh>
+      )}
       <mesh raycast={() => null} position={[0.31, -0.42, 0.11]}>
         <boxGeometry args={[0.78, 0.1, 0.22]} />
         <meshStandardMaterial color="#9a783d" roughness={0.72} />

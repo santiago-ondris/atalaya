@@ -10,6 +10,8 @@ import { Link, useNavigate, useOutletContext, useSearchParams } from 'react-rout
 import type { AuthOutletContext } from '../../components/layout/AppLayout'
 import { setViewMode } from '../../lib/viewMode'
 import { findDestination, lighthouseDestinations } from './destinations'
+import type { VisualSeverity } from './lighthouseState'
+import { demoWeather, useLighthouseHealth } from './useLighthouseHealth'
 
 const LighthouseScene = lazy(() =>
   import('./scene/LighthouseScene').then((module) => ({
@@ -22,6 +24,24 @@ export function LighthousePage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const still = searchParams.get('scene') === 'still'
+  const health = useLighthouseHealth()
+  const weatherOverride = demoWeather(searchParams.get('weather'))
+  const visualState = weatherOverride
+    ? {
+        ...health,
+        weather: weatherOverride,
+        applications: Object.fromEntries(
+          Object.entries(health.applications).map(([slug, application]) => [
+            slug,
+            {
+              ...application,
+              severity: weatherSeverity(weatherOverride),
+              freshness: 'fresh' as const,
+            },
+          ]),
+        ) as typeof health.applications,
+      }
+    : health
   const [activeDestination, setActiveDestination] = useState<string | null>(null)
 
   function useClassicView() {
@@ -35,6 +55,7 @@ export function LighthousePage() {
         <Suspense fallback={<LighthouseCover message="Preparando el horizonte…" />}>
           <LighthouseScene
             still={still}
+            visualState={visualState}
             activeDestination={activeDestination}
             onDestinationChange={setActiveDestination}
             onNavigate={(route) => navigate(route)}
@@ -52,24 +73,70 @@ export function LighthousePage() {
         </div>
       </div>
       <nav className="lighthouse-destinations" aria-label="Destinos del faro">
-        {lighthouseDestinations.map((destination) => (
-          <Link
-            key={destination.id}
-            to={destination.route}
-            onFocus={() => setActiveDestination(destination.id)}
-            onBlur={() => setActiveDestination(null)}
-          >
-            {destination.label}
-          </Link>
-        ))}
+        {lighthouseDestinations.map((destination) => {
+          const application =
+            destination.kind === 'window'
+              ? visualState.applications[
+                  destination.id as keyof typeof visualState.applications
+                ]
+              : null
+          const system = destination.id === 'system' ? visualState.system : null
+          const status = application ?? system
+          const accessibleLabel = status
+            ? `${destination.label}: ${severityLabel(status.severity)}${
+                status.freshness === 'stale' ? ', datos desactualizados' : ''
+              }`
+            : destination.label
+          return (
+            <Link
+              key={destination.id}
+              to={destination.route}
+              aria-label={accessibleLabel}
+              onFocus={() => setActiveDestination(destination.id)}
+              onBlur={() => setActiveDestination(null)}
+            >
+              {accessibleLabel}
+            </Link>
+          )
+        })}
       </nav>
       {activeDestination && (
         <div className="destination-label" aria-hidden="true">
-          {findDestination(activeDestination)?.label}
+          {destinationStatusLabel(activeDestination, visualState)}
         </div>
       )}
     </main>
   )
+}
+
+function severityLabel(severity: VisualSeverity) {
+  return severity === 'green'
+    ? 'operativo'
+    : severity === 'red'
+      ? 'interrupción mayor'
+      : 'estado degradado o desconocido'
+}
+
+function weatherSeverity(weather: 'clear' | 'mist' | 'storm'): VisualSeverity {
+  return weather === 'clear' ? 'green' : weather === 'mist' ? 'yellow' : 'red'
+}
+
+function destinationStatusLabel(
+  id: string,
+  visualState: ReturnType<typeof useLighthouseHealth>,
+) {
+  const destination = findDestination(id)
+  if (!destination) return ''
+  const status =
+    destination.kind === 'window'
+      ? visualState.applications[id as keyof typeof visualState.applications]
+      : id === 'system'
+        ? visualState.system
+        : null
+  if (!status) return destination.label
+  return `${destination.label} · ${severityLabel(status.severity)}${
+    status.freshness === 'stale' ? ' · datos desactualizados' : ''
+  }`
 }
 
 export function LighthouseCover({ message }: { message: string }) {

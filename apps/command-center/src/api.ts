@@ -204,7 +204,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  publicStatus: () => request<PublicStatus>('/api/v1/public/status'),
+  publicStatus: (signal?: AbortSignal) =>
+    request<PublicStatus>('/api/v1/public/status', { signal }),
   session: () => request<{ authenticated: boolean }>('/api/v1/session'),
   login: (password: string) =>
     request('/api/v1/session', { method: 'POST', body: JSON.stringify({ password }) }),
@@ -212,7 +213,8 @@ export const api = {
   overview: () => request<Overview>('/api/v1/overview'),
   integrations: () =>
     request<{ integrations: IntegrationStatus[] }>('/api/v1/integrations'),
-  systemHealth: () => request<SystemHealth>('/api/v1/system/health'),
+  systemHealth: (signal?: AbortSignal) =>
+    request<SystemHealth>('/api/v1/system/health', { signal }),
   events: (query: URLSearchParams) =>
     request<{ events: EventSummary[]; total: number; limit: number; offset: number }>(
       `/api/v1/events?${query}`,
