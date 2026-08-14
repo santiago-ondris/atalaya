@@ -135,13 +135,13 @@ Farmami, Wheels House, Prensap y Notizap usan `/api/v1/public/status`:
 
 Atalaya usa `/api/v1/system/health`:
 
-| Estado                                                           | Color visual |
-| ---------------------------------------------------------------- | ------------ |
-| `healthy`                                                        | Verde        |
-| `degraded` o señal interna no saludable                          | Amarillo     |
-| Endpoint inaccesible o fallo irrecuperable al consultar la salud | Rojo         |
+| Estado                                      | Color visual |
+| ------------------------------------------- | ------------ |
+| `healthy`                                   | Verde        |
+| `degraded` o señal interna no saludable     | Amarillo     |
+| Sin dato previo o señal interna desconocida | Amarillo     |
 
-La imposibilidad de consultar una fuente no debe bloquear la escena ni inutilizar sus enlaces. Se conserva el último dato conocido cuando corresponda y se comunica que está desactualizado; si no hay dato previo, se representa como desconocido.
+La imposibilidad de consultar una fuente no debe bloquear la escena ni inutilizar sus enlaces. Se conserva el último dato conocido cuando corresponda y se comunica que está desactualizado; si no hay dato previo, se representa como desconocido amarillo, sin inventar una caída roja.
 
 Los estados se consultan en paralelo y se refrescan cada 30 segundos. La v2 no requiere un endpoint agregado específico para el faro ni una migración de base de datos.
 

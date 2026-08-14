@@ -3,6 +3,7 @@ import { Navigate, Outlet, Route, Routes, useNavigate, useParams } from 'react-r
 import { api, type Overview } from './api'
 import { resolveApplication } from './catalog/applications'
 import { ErrorState, LoadingState } from './components/feedback/FeedbackState'
+import { CommandPaletteProvider } from './components/command/CommandPalette'
 import { AppLayout } from './components/layout/AppLayout'
 import { FineLayout } from './components/layout/FineLayout'
 import { ArchitecturePage } from './features/architecture/ArchitecturePage'
@@ -74,7 +75,12 @@ function AuthGuard() {
     void checkSession().then(setAuthenticated)
   }, [])
 
-  if (visualDemo) return <Outlet context={{ logout: async () => undefined }} />
+  if (visualDemo)
+    return (
+      <CommandPaletteProvider>
+        <Outlet context={{ logout: async () => undefined }} />
+      </CommandPaletteProvider>
+    )
   if (authenticated === null) return <LoadingState />
   if (!authenticated) return <LoginPage onSuccess={() => setAuthenticated(true)} />
 
@@ -85,7 +91,11 @@ function AuthGuard() {
     setAuthenticated(false)
   }
 
-  return <Outlet context={{ logout }} />
+  return (
+    <CommandPaletteProvider>
+      <Outlet context={{ logout }} />
+    </CommandPaletteProvider>
+  )
 }
 
 function ModeLayout() {

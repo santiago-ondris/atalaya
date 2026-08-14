@@ -8,6 +8,7 @@ import {
 } from 'react'
 import { Link, useNavigate, useOutletContext, useSearchParams } from 'react-router'
 import type { AuthOutletContext } from '../../components/layout/AppLayout'
+import { CommandPaletteTrigger } from '../../components/command/CommandPalette'
 import { setViewMode } from '../../lib/viewMode'
 import { findDestination, lighthouseDestinations } from './destinations'
 import type { VisualSeverity } from './lighthouseState'
@@ -68,6 +69,7 @@ export function LighthousePage() {
           <strong>Producción, a la vista.</strong>
         </div>
         <div className="lighthouse-actions">
+          <CommandPaletteTrigger />
           <button onClick={useClassicView}>Vista clásica</button>
           <button onClick={() => void logout()}>Cerrar sesión</button>
         </div>

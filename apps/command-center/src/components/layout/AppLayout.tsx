@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate, useOutletContext } from 'react-router'
 import { setViewMode } from '../../lib/viewMode'
+import { CommandPaletteTrigger } from '../command/CommandPalette'
 
 export type AuthOutletContext = { logout: () => Promise<void> }
 
@@ -43,6 +44,7 @@ export function AppLayout() {
         </nav>
         <div className="guard">
           <span>Guardia activa</span>
+          <CommandPaletteTrigger />
           <button onClick={returnToLighthouse}>Volver al faro</button>
           <button onClick={() => void logout()}>Cerrar sesión</button>
         </div>

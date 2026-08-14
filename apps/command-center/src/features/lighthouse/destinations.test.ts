@@ -13,6 +13,28 @@ describe('lighthouse destinations', () => {
       '/system',
     ])
     expect(new Set(lighthouseDestinations.map(({ id }) => id)).size).toBe(9)
+    expect(new Set(lighthouseDestinations.map(({ route }) => route)).size).toBe(9)
+    expect(
+      lighthouseDestinations.filter(({ group }) => group === 'Aplicaciones'),
+    ).toHaveLength(5)
+    expect(
+      lighthouseDestinations.filter(({ group }) => group === 'Operación'),
+    ).toHaveLength(4)
+  })
+
+  it('centralizes application aliases and predictable operational search terms', () => {
+    const searchable = Object.fromEntries(
+      lighthouseDestinations.map(({ id, keywords }) => [id, keywords]),
+    )
+    expect(searchable.wheels_house).toContain('wheelshouse')
+    expect(searchable.prensap).toContain('prensapp')
+    expect(searchable.atalaya).toContain('watchman')
+    expect(searchable.events).toContain('errores')
+    expect(searchable.operations).toEqual(
+      expect.arrayContaining(['operaciones', 'despliegues', 'colas']),
+    )
+    expect(searchable.reports).toContain('informes')
+    expect(searchable.system).toContain('salud')
   })
 
   it('resolves every hotspot from its stable identifier', () => {

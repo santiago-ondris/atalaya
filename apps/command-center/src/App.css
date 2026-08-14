@@ -797,6 +797,15 @@
   text-align: left;
   font: inherit;
 }
+.guard .command-palette-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 0;
+  color: #fff;
+}
 .workspace {
   min-width: 0;
   background: var(--background);
@@ -1445,6 +1454,24 @@ time {
   background: transparent;
   padding: 8px 10px;
 }
+.command-palette-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.command-palette-trigger kbd {
+  padding: 2px 5px;
+  border: 1px solid currentColor;
+  border-radius: 2px;
+  font: 600 9px var(--mono);
+  letter-spacing: 0;
+  text-transform: none;
+  opacity: 0.72;
+}
+.command-palette-trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 .not-found {
   min-height: 100vh;
   display: grid;
@@ -1549,6 +1576,124 @@ time {
   background: rgba(7, 22, 39, 0.62);
   backdrop-filter: blur(8px);
 }
+
+[cmdk-overlay] {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(13, 16, 14, 0.66);
+  animation: command-overlay-in 160ms var(--ease-mechanical, ease-out);
+}
+.command-palette {
+  position: fixed;
+  top: min(18vh, 160px);
+  left: 50%;
+  z-index: 101;
+  width: min(calc(100vw - 32px), 560px);
+  max-height: min(680px, calc(100vh - 64px));
+  transform: translateX(-50%);
+  overflow: hidden;
+  border: 1px solid var(--border-visible);
+  border-radius: 6px;
+  background: var(--surface1);
+  color: var(--text1);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22);
+  animation: command-dialog-in 180ms var(--ease-mechanical, ease-out);
+}
+.command-palette-heading {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border-visible);
+  color: var(--text3);
+  font: 600 10px var(--mono);
+  letter-spacing: 0.1em;
+}
+.command-palette-heading kbd {
+  padding: 3px 6px;
+  border: 1px solid var(--border-visible);
+  border-radius: 2px;
+  background: var(--background);
+  color: var(--text2);
+  font: 600 10px var(--mono);
+  letter-spacing: 0;
+}
+.command-palette [cmdk-input] {
+  width: calc(100% - 32px);
+  height: 48px;
+  margin: 16px;
+  padding: 0 12px;
+  border: 1px solid var(--border-visible);
+  border-radius: 4px;
+  background: var(--surface1);
+  color: var(--text1);
+  outline: none;
+}
+.command-palette [cmdk-input]:focus {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.command-palette [cmdk-input]::placeholder {
+  color: var(--text3);
+}
+.command-palette [cmdk-list] {
+  max-height: min(480px, calc(100vh - 200px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 16px 16px;
+}
+.command-palette [cmdk-group-heading] {
+  padding: 12px 8px 8px;
+  color: var(--text3);
+  font: 600 10px var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.command-palette [cmdk-item] {
+  min-height: 52px;
+  display: grid;
+  grid-template-columns: minmax(120px, 0.7fr) minmax(0, 1.3fr);
+  align-items: center;
+  gap: 16px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  border-left: 2px solid transparent;
+  cursor: pointer;
+  font-size: 13px;
+}
+.command-palette [cmdk-item] small {
+  color: var(--text2);
+  font: 11px var(--mono);
+  text-align: right;
+}
+.command-palette [cmdk-item][data-selected='true'] {
+  border-left-color: var(--accent);
+  background: var(--accent-subtle);
+}
+.command-palette [cmdk-item][data-selected='true'] small {
+  color: var(--text1);
+}
+.command-palette [cmdk-empty] {
+  padding: 32px 16px;
+  color: var(--text2);
+  text-align: center;
+  font: 12px var(--mono);
+}
+
+@keyframes command-overlay-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes command-dialog-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+}
 .lighthouse-destinations {
   position: absolute;
   inset: 0;
@@ -1641,11 +1786,27 @@ time {
   .lighthouse-brand strong {
     display: none;
   }
+  .command-palette {
+    top: 24px;
+  }
+  .command-palette [cmdk-item] {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+  .command-palette [cmdk-item] small {
+    text-align: left;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .lighthouse-mark span {
     box-shadow: 0 0 22px 8px rgba(255, 224, 0, 0.28);
+  }
+  [cmdk-overlay],
+  .command-palette,
+  .command-palette * {
+    animation: none !important;
+    transition: none !important;
   }
 }
 

@@ -253,6 +253,10 @@ Sprints V2.0 y V2.2 completados. Las rutas de V2.1 deben estar disponibles para 
 
 ## Sprint V2.4 — Estado vivo y clima operativo
 
+### Estado
+
+✅ Completado y validado en Safari real el 13 de agosto de 2026.
+
 ### Objetivo
 
 Hacer que el faro comunique disponibilidad y salud reales sin convertir el 3D en una fuente adicional de lógica de negocio.
@@ -291,6 +295,10 @@ Sprints V2.1 y V2.3 completados.
 ---
 
 ## Sprint V2.5 — Command palette, modo clásico y accesibilidad
+
+### Estado
+
+✅ Completado y aprobado en Safari real el 14 de agosto de 2026.
 
 ### Objetivo
 

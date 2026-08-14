@@ -21,6 +21,7 @@ vi.mock('./useLighthouseHealth', () => ({
 }))
 
 import { LighthouseCover, LighthousePage, SceneBoundary } from './LighthousePage'
+import { CommandPaletteProvider } from '../../components/command/CommandPalette'
 
 afterEach(cleanup)
 
@@ -54,7 +55,14 @@ describe('lighthouse loading and recovery', () => {
       <MemoryRouter>
         <Routes>
           <Route element={<Outlet context={{ logout: vi.fn() }} />}>
-            <Route path="*" element={<LighthousePage />} />
+            <Route
+              path="*"
+              element={
+                <CommandPaletteProvider>
+                  <LighthousePage />
+                </CommandPaletteProvider>
+              }
+            />
           </Route>
         </Routes>
       </MemoryRouter>,

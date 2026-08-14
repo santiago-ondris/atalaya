@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useLocation, useNavigate, useOutletContext } from 'react-router'
 import { setViewMode } from '../../lib/viewMode'
 import type { AuthOutletContext } from './AppLayout'
+import { CommandPaletteTrigger } from '../command/CommandPalette'
 
 const sectionNames: Record<string, string> = {
   apps: 'Aplicaciones',
@@ -29,6 +30,7 @@ export function FineLayout() {
         </NavLink>
         <span>{section}</span>
         <div>
+          <CommandPaletteTrigger />
           <button onClick={useClassicView}>Vista clásica</button>
           <button onClick={() => void logout()}>Cerrar sesión</button>
         </div>
