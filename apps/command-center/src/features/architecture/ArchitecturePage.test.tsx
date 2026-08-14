@@ -22,7 +22,9 @@ describe('ArchitecturePage', () => {
 
     expect(screen.getByText('Diagramas de sistema')).toBeInTheDocument()
     expect(screen.getAllByText('Farmami').length).toBeGreaterThan(0)
-    expect(screen.getByText('Vue / Laravel / MySQL')).toBeInTheDocument()
+    expect(
+      screen.getByText('Node / Prisma / Express / React / PostgreSQL'),
+    ).toBeInTheDocument()
     expect(
       screen.getByTitle('Diagrama interactivo de arquitectura - Farmami'),
     ).toHaveAttribute('src', '/diagrams/arquitectura-farmami.html')
