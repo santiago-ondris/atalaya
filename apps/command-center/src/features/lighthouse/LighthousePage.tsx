@@ -145,7 +145,7 @@ export function LighthousePage() {
       <div className="lighthouse-overlay">
         <div className="lighthouse-brand">
           <span className="eyebrow">ATALAYA / FARO</span>
-          <strong>Producción, a la vista.</strong>
+          <strong>Producción.</strong>
         </div>
         <div className="lighthouse-actions">
           <CommandPaletteTrigger />

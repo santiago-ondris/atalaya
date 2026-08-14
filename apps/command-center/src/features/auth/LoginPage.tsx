@@ -21,7 +21,7 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
       await api.login(password)
       onSuccess()
     } catch {
-      setError('La contraseña no coincide con la guardia autorizada.')
+      setError('La contraseña no coincide.')
     } finally {
       setIsSubmitting(false)
     }
@@ -33,12 +33,11 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
       <div className="bearing" />
 
       <section className="login-copy">
-        <span className="eyebrow">ATLY / ACCESO PRIVADO</span>
-        <h1>La guardia empieza acá.</h1>
-        <p>Ingresá al puesto de observación de producción.</p>
+        <h1>Atalaya Login</h1>
+        <p>Farito</p>
 
         <form onSubmit={handleSubmit}>
-          <label htmlFor="password">Contraseña de guardia</label>
+          <label htmlFor="password">Contraseña</label>
           <div className="login-row">
             <input
               id="password"
@@ -49,7 +48,7 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
               autoComplete="current-password"
             />
             <button disabled={isSubmitting}>
-              {isSubmitting ? 'Verificando…' : 'Entrar al puesto'}
+              {isSubmitting ? 'Verificando…' : 'Entrar'}
             </button>
           </div>
           {error && (
@@ -61,7 +60,7 @@ export function LoginPage({ onSuccess }: LoginPageProps) {
 
         <div className="watch-note">
           <SignalFlag />
-          Sesión privada · cookie segura HttpOnly
+          private session
         </div>
       </section>
     </main>
