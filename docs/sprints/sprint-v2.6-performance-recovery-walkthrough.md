@@ -34,4 +34,8 @@ WebGL se comprueba antes de montar el import diferido. La ausencia de WebGL abre
 
 Equipo: MacBook Air M5, 16 GB, GPU 8 núcleos. Viewport: 1440×900.
 
-La validación humana de cinco minutos en Safari y Chrome queda como checkpoint de publicación: registrar FPS normal y reducido, transición crítica, retry, navegación y `⌘K`. Los valores reales no se inventan durante la verificación automatizada.
+La validación humana de cinco minutos en Safari real y Chrome se completó como
+checkpoint de publicación el 14 de agosto de 2026. Confirmó la transición crítica,
+retry, navegación y `⌘K`. No quedaron cifras de FPS registradas, por lo que el
+cierre conserva esta evidencia como cualitativa y no inventa valores para los
+perfiles normal o reducido.

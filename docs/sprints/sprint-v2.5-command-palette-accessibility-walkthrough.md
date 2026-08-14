@@ -44,4 +44,5 @@ La revisión visual confirmó la paleta sobre faro y vista clásica, además de 
 ## Deuda posterior
 
 - V2.6 incorporará perfiles explícitos de calidad, presupuesto de render y recuperación por rendimiento.
-- V2.7 añadirá recorridos browser automatizados y la regresión final entre navegadores.
+- V2.7 consolidó la evidencia existente. Playwright y la regresión automatizada
+  entre navegadores quedaron como deuda futura explícita.

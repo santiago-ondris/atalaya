@@ -1,8 +1,13 @@
-# Atalaya — Centro de Comando y Observabilidad V1
+# Atalaya — Centro de Comando y Observabilidad
 
 Atalaya es un centro de comando y observabilidad para monitorear aplicaciones en producción (**Farmami**, **Wheels House**, **Prensap** y **Notizap**).
 
 Combina ingesta multifuente (Sentry & Azure Application Insights), interpretación estructurada mediante LLM (OpenRouter), alertas inteligentes por Telegram, diagramas de arquitectura interactivos, reportes diarios de sesiones/aperturas, seguimiento de incidentes y deploys, observabilidad de costos, status page pública y meta-observabilidad sobre el propio sistema de monitoreo.
+
+El Command Center v2 incorpora en desktop un faro 3D como navegación principal:
+cinco ventanas llevan a las fichas operativas y cuatro protagonistas marítimos a
+Eventos, Bitácora, Reportes y Estado del sistema. La command palette (`⌘K`/`Ctrl+K`)
+y la vista clásica ofrecen caminos directos que no dependen del Canvas.
 
 ---
 
@@ -87,6 +92,16 @@ make down
 8. **Hardening, Retención y Respaldos**:
    - Limpieza automática en segundo plano de eventos mayores a `EVENT_RETENTION_DAYS` (90 días por defecto).
    - Cabeceras de seguridad HTTP, rate limiters, validación estricta de esquemas y scripts de backup/restore en `deploy/scripts/`.
+
+9. **Experiencia Operativa v2**:
+   - Faro desktop con nueve destinos, cinco fichas y clima derivado de la peor severidad.
+   - Cambio de sesión entre modo inmersivo y clásico; bajo 901 px o sin puntero fino se usa temporalmente la vista clásica.
+   - Calidad 3D adaptativa y retorno seguro al modo clásico ante bajo rendimiento, WebGL ausente, error de carga/render o pérdida irrecuperable del contexto.
+   - Diagnóstico reproducible con `npm run build:report`; detalles operativos y de recuperación en `docs/runbooks/operational-runbook.md`.
+
+El Corte 1 desktop está cerrado. La evidencia se encuentra en
+`docs/sprints/sprint-v2.7-corte-1-closure-walkthrough.md`; Firefox real y la
+automatización Playwright cross-browser permanecen como deuda conocida.
 
 ---
 

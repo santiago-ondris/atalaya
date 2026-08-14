@@ -4,7 +4,10 @@
 
 Este documento es la fuente de verdad conceptual y de producto para la evolución visual de Atalaya v2. Las decisiones del **Corte 1 — Desktop** están cerradas. Su ejecución se divide en sprints en `v2-corte-1-plan.md`.
 
-Los Cortes 2 y 3 permanecen deliberadamente fuera de ese roadmap. Cuando termine el Corte 1 se escribirá un plan nuevo para ambos, incorporando lo aprendido durante la implementación y validación real de la escena desktop.
+El Corte 1 quedó completado el 14 de agosto de 2026 y su roadmap está congelado.
+Los Cortes 2 y 3 permanecen deliberadamente fuera de ese registro; su handoff
+inicial está en `docs/handoffs/cortes-2-3-handoff.md` y todavía no constituye un
+nuevo plan de sprints.
 
 ## Contexto y excepción de autoría
 
@@ -220,7 +223,7 @@ El Canvas no será la única representación navegable de los destinos:
 - `prefers-reduced-motion` detendrá oleaje, barcos, clima y haz continuos sin eliminar información ni navegación.
 - La command palette debe funcionar aunque la escena no llegue a cargar.
 
-## Herramientas confirmadas
+## Herramientas confirmadas en el Corte 1
 
 - React Router en modo declarativo para rutas y layouts.
 - Three.js con WebGL.
@@ -228,7 +231,12 @@ El Canvas no será la única representación navegable de los destinos:
 - `@react-three/drei` para controles y herramientas de rendimiento.
 - `cmdk` para la command palette.
 - Vitest y Testing Library para lógica y componentes.
-- Playwright para navegación, fallbacks y pruebas en navegadores reales.
+
+Playwright no fue incorporado en el Corte 1. La automatización browser con
+Chromium, Firefox y WebKit, la validación en Firefox real y una suite transversal
+de navegación, accesibilidad y recuperación quedan como mejoras futuras. Safari
+real y Chrome se validaron manualmente durante V2.2–V2.6; esa evidencia no se
+presenta como sustituto de la cobertura pendiente.
 
 No se incorporarán motor de física, WebGPU ni un sistema de estado global salvo que aparezca una necesidad demostrable durante la implementación.
 

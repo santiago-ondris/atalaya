@@ -30,4 +30,5 @@ El checkpoint visual de 1440×900 y 1024×768 fue aprobado el 13 de agosto de 20
 
 La validación manual posterior en Safari real confirmó carga, órbita limitada, zoom acotado, adaptación al redimensionar y animaciones estables. Con esa comprobación V2.2 quedó completado.
 
-Firefox y Playwright WebKit se validarán en V2.7 junto con la suite browser integral.
+Firefox real y la automatización Playwright en Chromium, Firefox y WebKit quedaron
+registrados al cierre del Corte 1 como deuda futura explícita.

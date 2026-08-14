@@ -34,4 +34,5 @@ El modo de demo está disponible exclusivamente en desarrollo con `?scene=still&
 
 - V2.5 completará command palette y accesibilidad transversal.
 - V2.6 incorporará perfiles explícitos de calidad y presupuesto de render.
-- V2.7 añadirá recorridos browser automatizados para interacción y recuperación.
+- El cierre del Corte 1 registró los recorridos browser automatizados de
+  interacción y recuperación como deuda futura.

@@ -1,10 +1,17 @@
-# Atalaya v2 — Roadmap del Corte 1 Desktop
+# Atalaya v2 — Roadmap del Corte 1 Desktop (cerrado)
+
+> **Estado:** Corte 1 completado el 14 de agosto de 2026. Este roadmap queda
+> congelado como registro histórico; sólo admite correcciones factuales. El cierre
+> y su evidencia consolidada están en
+> `docs/sprints/sprint-v2.7-corte-1-closure-walkthrough.md`.
 
 ## Propósito y límite del plan
 
 Este archivo contiene **exclusivamente los sprints del Corte 1 de Atalaya v2**. Su objetivo es entregar la experiencia desktop completa del faro 3D sin mezclar trabajo mobile ni el rediseño general de las páginas funcionales.
 
-Cuando el Corte 1 esté cerrado y validado se creará un archivo de planificación nuevo para:
+El handoff documental para el trabajo posterior está en
+`docs/handoffs/cortes-2-3-handoff.md`. Cuando se decida iniciar esa etapa se creará
+un archivo de planificación nuevo para:
 
 - **Corte 2:** experiencia mobile clásica rediseñada.
 - **Corte 3:** experiencia mobile inmersiva, detección de capacidad y elección post-login.
@@ -390,9 +397,15 @@ Escena funcional hasta V2.5.
 
 ## Sprint V2.7 — Validación integral y cierre del Corte 1
 
+### Estado
+
+✅ Completado el 14 de agosto de 2026 como cierre documental.
+
 ### Objetivo
 
-Cerrar una experiencia desktop desplegable, documentada y suficientemente observada como para planificar mobile con evidencia real.
+Consolidar la evidencia ya aprobada de V2.0–V2.6, cerrar documentalmente la
+experiencia desktop y dejar explícita la cobertura browser pendiente antes de
+planificar mobile.
 
 ### Dependencias
 
@@ -400,52 +413,46 @@ Todos los sprints anteriores completados.
 
 ### Alcance
 
-- Incorporar Playwright para recorridos críticos.
-- Probar login, retorno a deep link, rutas, refresco y atrás/adelante.
-- Probar hotspots, command palette, ambos shells y modo de sesión.
-- Probar fallback sin WebGL y errores recuperables.
-- Congelar semilla, reloj y animaciones donde sea necesario para tests deterministas.
-- Ejecutar regresión funcional de Eventos, detalle de evento, Bitácora, Reportes, Arquitectura, Sistema y `/status`.
-- Validar Chrome, Firefox, Playwright WebKit y Safari real.
-- Validar interacción en diferentes resoluciones desktop y el desvío temporal a clásico bajo 901 px.
-- Ejecutar auditoría final de teclado, reducción de movimiento y contraste.
-- Revisar presupuesto de transferencia y comportamiento de frame rate.
+- Consolidar los walkthroughs, tests y aprobaciones manuales de V2.0–V2.6.
+- Confirmar documentalmente los nueve destinos, cinco fichas, tres climas,
+  command palette, modos inmersivo y clásico y fallbacks recuperables.
+- Reutilizar las validaciones Safari real y Chrome ya realizadas, sin abrir una
+  nueva ronda visual, accesible o funcional.
+- Ejecutar `test`, `lint`, `format:check`, `build`, `audit` y `build:report`.
+- Revisar el presupuesto reproducible de transferencia sin inventar métricas de FPS.
 - Actualizar README, documentación de operación y troubleshooting.
-- Crear un walkthrough del Corte 1 con decisiones, capturas, pruebas y deuda conocida.
-- Registrar aprendizajes que deban condicionar Cortes 2 y 3.
+- Crear un walkthrough del Corte 1 con decisiones, evidencia, pruebas y deuda conocida.
+- Crear un handoff breve con aprendizajes y preguntas para Cortes 2 y 3, sin
+  definir nuevos sprints.
+- Registrar Firefox real, Playwright Chromium/Firefox/WebKit y una suite browser
+  transversal como deuda futura explícita.
 
 ### Criterios de aceptación
 
-- Todos los checks de CI pasan.
-- No existen regresiones funcionales conocidas respecto de v1.
-- Los nueve destinos funcionan mediante escena y command palette.
-- Las cinco fichas usan datos reales y toleran errores parciales.
-- Los tres niveles de clima reflejan correctamente el estado agregado.
-- El modo clásico y los fallbacks son utilizables, no pantallas de error decorativas.
-- Safari real completa el recorrido crítico o cualquier limitación queda resuelta antes del cierre.
-- La documentación permite reproducir demo, pruebas y diagnóstico.
+- Las suites existentes pasan y sus resultados quedan publicados en el walkthrough.
+- La evidencia acumulada confirma los nueve destinos, las cinco fichas y los tres climas.
+- Command palette, ambos modos y fallbacks quedan respaldados por tests y
+  validaciones ya aprobadas.
+- Las métricas de bundle son reproducibles y mantienen el stack 3D diferido.
+- La cobertura browser no ejecutada queda declarada como deuda, no como validación.
+- README, runbook, walkthrough y handoff permiten operar y continuar el proyecto.
 
-### Demo final
+### Evidencia de cierre
 
-1. Iniciar sesión desde un deep link.
-2. Entrar al faro y observar estado real de cinco ventanas.
-3. Explorar la escena con órbita limitada.
-4. Abrir una ficha desde una ventana.
-5. Abrir cada página funcional desde su destino narrativo.
-6. Repetir navegación mediante `⌘/Ctrl+K`.
-7. Activar movimiento reducido.
-8. Cambiar a v1 clásica y volver al faro.
-9. Simular fallo o rendimiento insuficiente y comprobar fallback.
-10. Abrir `/status` sin autenticación.
+El recorrido funcional, la accesibilidad, los estados vivos, los tres climas y la
+recuperación fueron validados incrementalmente en V2.0–V2.6. V2.7 no repite esa
+demo: consolida sus walkthroughs y ejecuta únicamente las suites existentes. La
+trazabilidad completa está en el walkthrough final del Corte 1.
 
 ### Cierre formal
 
-Una vez aceptada la demo y publicado el walkthrough:
+Con el walkthrough publicado:
 
-- Marcar el Corte 1 como completado.
-- Congelar este roadmap como registro histórico, salvo correcciones factuales.
-- Crear un **nuevo archivo de sprints** para Cortes 2 y 3.
-- Usar métricas, problemas y aprendizajes reales de desktop para decidir controles táctiles, perfiles de GPU, selector post-login y persistencia mobile.
+- El Corte 1 y V2.7 quedan completados.
+- Este roadmap queda congelado como registro histórico, salvo correcciones factuales.
+- El handoff no constituye un nuevo roadmap ni define sprints para Cortes 2 y 3.
+- La planificación futura deberá usar los aprendizajes desktop para decidir
+  controles táctiles, perfiles de GPU, selector post-login y persistencia mobile.
 
 ---
 
@@ -459,7 +466,7 @@ Una vez aceptada la demo y publicado el walkthrough:
 | Observación viva    | V2.4      | Ventanas y clima conectados a estado real              |
 | Operación accesible | V2.5      | Paleta, teclado, movimiento reducido y modo clásico    |
 | Resiliencia visual  | V2.6      | Calidad adaptativa, presupuestos y fallbacks           |
-| Corte 1 cerrado     | V2.7      | Regresión, navegadores, documentación y demo final     |
+| Corte 1 cerrado     | V2.7      | Consolidación documental, checks y deuda browser       |
 
 ## Trabajo deliberadamente posterior
 
@@ -469,5 +476,8 @@ Una vez aceptada la demo y publicado el walkthrough:
 - Rediseño de layouts de Eventos, Bitácora, Reportes y Estado del sistema.
 - Evaluación de transiciones cinematográficas entre escena y destinos.
 - Incorporación de modelos `.glb` únicamente si las geometrías propias demuestran ser insuficientes.
+- Validación en Firefox real.
+- Playwright en Chromium, Firefox y WebKit.
+- Suite browser transversal para navegación, accesibilidad y recuperación.
 
 Estos puntos no deben ampliar informalmente ningún sprint del Corte 1.

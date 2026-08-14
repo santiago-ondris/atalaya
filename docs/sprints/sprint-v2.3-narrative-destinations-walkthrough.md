@@ -34,4 +34,5 @@ Los tests verifican que existan exactamente nueve destinos, que sus identificado
 
 - V2.4 completó la aplicación de estado real a las ventanas y el clima reactivo sin modificar rutas ni modelos.
 - V2.6 incorporará perfiles de calidad y degradación de elementos ambientales.
-- V2.7 añadirá recorridos browser automatizados con Playwright para mouse, teclado y foco.
+- El cierre del Corte 1 registró los recorridos browser automatizados con
+  Playwright como deuda futura; no se incorporaron en V2.7.
