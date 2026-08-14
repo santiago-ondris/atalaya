@@ -2,6 +2,8 @@ import {
   Component,
   lazy,
   Suspense,
+  useEffect,
+  useMemo,
   useState,
   type ErrorInfo,
   type ReactNode,
@@ -13,6 +15,14 @@ import { setViewMode } from '../../lib/viewMode'
 import { findDestination, lighthouseDestinations } from './destinations'
 import type { VisualSeverity } from './lighthouseState'
 import { demoWeather, useLighthouseHealth } from './useLighthouseHealth'
+import type { PerformanceSimulation, SceneQuality } from './performance'
+import {
+  clearFallbackReason,
+  failureMessages,
+  hasWebGL,
+  setFallbackReason,
+  type LighthouseFailureReason,
+} from './recovery'
 
 const LighthouseScene = lazy(() =>
   import('./scene/LighthouseScene').then((module) => ({
@@ -44,25 +54,94 @@ export function LighthousePage() {
       }
     : health
   const [activeDestination, setActiveDestination] = useState<string | null>(null)
+  const [sceneKey, setSceneKey] = useState(0)
+  const [quality, setQuality] = useState<SceneQuality>('normal')
+  const [failure, setFailure] = useState<LighthouseFailureReason | null>(null)
+  const [webglReady, setWebglReady] = useState(false)
+  const [fps, setFps] = useState(0)
+  const [countdown, setCountdown] = useState(0)
+  const debug = import.meta.env.DEV && searchParams.get('performanceDebug') === '1'
+  const simulation = useMemo<PerformanceSimulation>(() => {
+    if (!import.meta.env.DEV) return null
+    const value = searchParams.get('performance')
+    return value === 'degraded' || value === 'critical' ? value : null
+  }, [searchParams])
 
-  function useClassicView() {
+  useEffect(() => {
+    if (hasWebGL()) setWebglReady(true)
+    else openClassicView('webgl-unavailable')
+    // WebGL is deliberately checked once before the deferred scene import.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  function openClassicView(reason?: LighthouseFailureReason) {
+    if (reason) setFallbackReason(reason)
     setViewMode('classic')
     navigate('/overview')
   }
 
+  function retry() {
+    setFailure(null)
+    setQuality('normal')
+    setFps(0)
+    setCountdown(0)
+    if (!hasWebGL()) {
+      openClassicView('webgl-unavailable')
+      return
+    }
+    setWebglReady(true)
+    setSceneKey((value) => value + 1)
+  }
+
+  function fail(reason: LighthouseFailureReason) {
+    setFallbackReason(reason)
+    setFailure(reason)
+  }
+
   return (
     <main className="lighthouse-page">
-      <SceneBoundary fallback={<SceneFailure onClassic={useClassicView} />}>
-        <Suspense fallback={<LighthouseCover message="Preparando el horizonte…" />}>
-          <LighthouseScene
-            still={still}
-            visualState={visualState}
-            activeDestination={activeDestination}
-            onDestinationChange={setActiveDestination}
-            onNavigate={(route) => navigate(route)}
-          />
-        </Suspense>
-      </SceneBoundary>
+      {failure ? (
+        <SceneFailure
+          reason={failure}
+          onRetry={retry}
+          onClassic={() => openClassicView(failure)}
+        />
+      ) : (
+        <SceneBoundary
+          key={sceneKey}
+          onError={() => fail('scene-error')}
+          fallback={
+            <SceneFailure
+              reason="scene-error"
+              onRetry={retry}
+              onClassic={() => openClassicView('scene-error')}
+            />
+          }
+        >
+          <Suspense fallback={<LighthouseCover message="Preparando el horizonte…" />}>
+            {webglReady && (
+              <LighthouseScene
+                key={sceneKey}
+                still={still}
+                quality={quality}
+                simulation={simulation}
+                visualState={visualState}
+                activeDestination={activeDestination}
+                onDestinationChange={setActiveDestination}
+                onNavigate={(route) => navigate(route)}
+                onQualityChange={setQuality}
+                onPerformance={(nextFps, windows) => {
+                  setFps(nextFps)
+                  setCountdown(windows)
+                }}
+                onPerformanceFallback={() => openClassicView('performance')}
+                onFailure={() => fail('context-lost')}
+                onReady={clearFallbackReason}
+              />
+            )}
+          </Suspense>
+        </SceneBoundary>
+      )}
       <div className="lighthouse-overlay">
         <div className="lighthouse-brand">
           <span className="eyebrow">ATALAYA / FARO</span>
@@ -70,7 +149,7 @@ export function LighthousePage() {
         </div>
         <div className="lighthouse-actions">
           <CommandPaletteTrigger />
-          <button onClick={useClassicView}>Vista clásica</button>
+          <button onClick={() => openClassicView()}>Vista clásica</button>
           <button onClick={() => void logout()}>Cerrar sesión</button>
         </div>
       </div>
@@ -106,6 +185,13 @@ export function LighthousePage() {
         <div className="destination-label" aria-hidden="true">
           {destinationStatusLabel(activeDestination, visualState)}
         </div>
+      )}
+      {debug && (
+        <aside className="performance-debug" aria-label="Diagnóstico de rendimiento">
+          <strong>{quality}</strong>
+          <span>{Math.round(fps)} FPS</span>
+          <span>{countdown ? `${countdown} ventanas restantes` : 'estable'}</span>
+        </aside>
       )}
     </main>
   )
@@ -154,12 +240,23 @@ export function LighthouseCover({ message }: { message: string }) {
   )
 }
 
-function SceneFailure({ onClassic }: { onClassic: () => void }) {
+function SceneFailure({
+  reason,
+  onRetry,
+  onClassic,
+}: {
+  reason: LighthouseFailureReason
+  onRetry: () => void
+  onClassic: () => void
+}) {
   return (
     <section className="lighthouse-cover scene-failure" role="alert">
       <span className="eyebrow">ATALAYA / RECUPERACIÓN</span>
       <h1>El faro no pudo encenderse.</h1>
-      <p>La operación sigue disponible en la vista clásica.</p>
+      <p>{failureMessages[reason]} La operación sigue disponible.</p>
+      <button className="primary-action" onClick={onRetry}>
+        Reintentar faro
+      </button>
       <button className="primary-action" onClick={onClassic}>
         Abrir vista clásica
       </button>
@@ -170,6 +267,7 @@ function SceneFailure({ onClassic }: { onClassic: () => void }) {
 interface SceneBoundaryProps {
   children: ReactNode
   fallback: ReactNode
+  onError?: () => void
 }
 interface SceneBoundaryState {
   failed: boolean
@@ -184,6 +282,7 @@ export class SceneBoundary extends Component<SceneBoundaryProps, SceneBoundarySt
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('Lighthouse scene failed', error, info)
+    this.props.onError?.()
   }
 
   render() {

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:report": "npm run build && node scripts/bundle-report.mjs",
     "lint": "oxlint",
     "test": "vitest run",
     "format": "prettier --write .",

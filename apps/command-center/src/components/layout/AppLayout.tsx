@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate, useOutletContext } from 'react-router'
 import { setViewMode } from '../../lib/viewMode'
 import { CommandPaletteTrigger } from '../command/CommandPalette'
+import { failureMessages, getFallbackReason } from '../../features/lighthouse/recovery'
 
 export type AuthOutletContext = { logout: () => Promise<void> }
 
@@ -19,6 +20,7 @@ export function AppLayout() {
   const currentTime = new Intl.DateTimeFormat('es-AR', { timeStyle: 'medium' }).format(
     new Date(),
   )
+  const fallbackReason = getFallbackReason()
 
   function returnToLighthouse() {
     setViewMode('immersive')
@@ -54,6 +56,12 @@ export function AppLayout() {
           <span>Producción / Argentina</span>
           <span>{currentTime} ART</span>
         </header>
+        {fallbackReason && (
+          <aside className="fallback-banner" role="status">
+            <span>{failureMessages[fallbackReason]}</span>
+            <button onClick={returnToLighthouse}>Reintentar faro</button>
+          </aside>
+        )}
         <Outlet />
       </div>
     </div>

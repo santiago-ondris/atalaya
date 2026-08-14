@@ -343,6 +343,10 @@ Sprints V2.0 y V2.3 completados.
 
 ## Sprint V2.6 — Rendimiento, adaptación y recuperación
 
+### Estado
+
+✅ Completado el 14 de agosto de 2026.
+
 ### Objetivo
 
 Mantener una carga inicial prolija y garantizar una salida recuperable cuando el dispositivo no pueda sostener la experiencia 3D.

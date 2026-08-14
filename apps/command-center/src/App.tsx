@@ -18,6 +18,7 @@ import { ReportsPage } from './features/reports/ReportsPage'
 import { StatusPage } from './features/status/StatusPage'
 import { SystemPage } from './features/system/SystemPage'
 import { clearViewMode, getInitialViewMode } from './lib/viewMode'
+import { clearFallbackReason } from './features/lighthouse/recovery'
 import './App.css'
 
 const OperationsPage = lazy(() =>
@@ -86,6 +87,7 @@ function AuthGuard() {
 
   async function logout() {
     clearViewMode()
+    clearFallbackReason()
     await api.logout().catch(() => undefined)
     sessionCheck = Promise.resolve(false)
     setAuthenticated(false)

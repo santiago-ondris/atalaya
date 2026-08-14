@@ -19,6 +19,16 @@ import {
   Shape,
 } from 'three'
 import { findDestination } from '../destinations'
+import {
+  evaluatePerformanceWindow,
+  FrameWindowMonitor,
+  initialPerformanceState,
+  PERFORMANCE_LIMITS,
+  QUALITY_PROFILES,
+  simulatedFps,
+  type PerformanceSimulation,
+  type SceneQuality,
+} from '../performance'
 import type {
   ApplicationVisualState,
   LighthouseVisualState,
@@ -31,6 +41,13 @@ interface LighthouseSceneProps {
   activeDestination: string | null
   onDestinationChange: (id: string | null) => void
   onNavigate: (route: string) => void
+  quality: SceneQuality
+  simulation: PerformanceSimulation
+  onQualityChange: (quality: SceneQuality) => void
+  onPerformance: (fps: number, remaining: number) => void
+  onPerformanceFallback: () => void
+  onFailure: () => void
+  onReady: () => void
 }
 
 export function LighthouseScene({
@@ -39,27 +56,63 @@ export function LighthouseScene({
   activeDestination,
   onDestinationChange,
   onNavigate,
+  quality,
+  simulation,
+  onQualityChange,
+  onPerformance,
+  onPerformanceFallback,
+  onFailure,
+  onReady,
 }: LighthouseSceneProps) {
   const reducedMotion = useReducedMotion()
   const frozen = still || reducedMotion
+  const profile = QUALITY_PROFILES[quality]
+  const [canvasKey, setCanvasKey] = useState(0)
+  const restoredOnce = useRef(false)
 
   return (
     <div
       className={`lighthouse-canvas${activeDestination ? ' destination-active' : ''}`}
       data-scene-mode={still ? 'still' : 'live'}
+      data-scene-quality={quality}
     >
       <Canvas
+        key={canvasKey}
         camera={{ position: [18, 13, 22], fov: 42, near: 0.1, far: 100 }}
-        dpr={[1, 1.5]}
-        shadows
+        dpr={quality === 'normal' ? [1, profile.dpr] : profile.dpr}
+        shadows={profile.shadows}
         gl={{ antialias: true, powerPreference: 'high-performance' }}
         onPointerMissed={() => onDestinationChange(null)}
         onCreated={({ gl }) => {
           gl.setClearColor(new Color('#071627'))
           gl.shadowMap.autoUpdate = !still
+          const canvas = gl.domElement
+          let timer: ReturnType<typeof setTimeout> | undefined
+          const lost = (event: Event) => {
+            event.preventDefault()
+            timer = setTimeout(onFailure, 3_000)
+          }
+          const restored = () => {
+            if (timer) clearTimeout(timer)
+            if (!restoredOnce.current) {
+              restoredOnce.current = true
+              setCanvasKey((value) => value + 1)
+            } else {
+              onFailure()
+            }
+          }
+          canvas.addEventListener('webglcontextlost', lost, { once: true })
+          canvas.addEventListener('webglcontextrestored', restored, { once: true })
+          onReady()
         }}
       >
-        <Atmosphere weather={visualState.weather} frozen={frozen} />
+        <PerformanceMonitor
+          simulation={simulation}
+          onQualityChange={onQualityChange}
+          onPerformance={onPerformance}
+          onFallback={onPerformanceFallback}
+        />
+        <Atmosphere weather={visualState.weather} frozen={frozen} quality={quality} />
         <pointLight position={[0, 8.8, 0]} intensity={12} distance={19} color="#ffe39a" />
         <Scene
           frozen={frozen}
@@ -67,6 +120,7 @@ export function LighthouseScene({
           activeDestination={activeDestination}
           onDestinationChange={onDestinationChange}
           onNavigate={onNavigate}
+          quality={quality}
         />
         <OrbitControls
           enabled={!still}
@@ -94,13 +148,30 @@ interface InteractionProps {
 function Scene({
   frozen,
   visualState,
+  quality,
   ...interaction
-}: { frozen: boolean; visualState: LighthouseVisualState } & InteractionProps) {
+}: {
+  frozen: boolean
+  visualState: LighthouseVisualState
+  quality: SceneQuality
+} & InteractionProps) {
   return (
     <>
-      <Stars weather={visualState.weather} frozen={frozen} />
-      <CloudBanks weather={visualState.weather} frozen={frozen} />
-      <Sea frozen={frozen} weather={visualState.weather} />
+      <Stars
+        weather={visualState.weather}
+        frozen={frozen}
+        count={QUALITY_PROFILES[quality].stars}
+      />
+      <CloudBanks
+        weather={visualState.weather}
+        frozen={frozen}
+        count={QUALITY_PROFILES[quality].clouds}
+      />
+      <Sea
+        frozen={frozen}
+        weather={visualState.weather}
+        segments={QUALITY_PROFILES[quality].seaSegments}
+      />
       <Island />
       <Lighthouse
         frozen={frozen}
@@ -108,7 +179,7 @@ function Scene({
         {...interaction}
       />
       <NarrativeFleet frozen={frozen} {...interaction} />
-      <DecorativeFleet frozen={frozen} />
+      <DecorativeFleet frozen={frozen} count={QUALITY_PROFILES[quality].boats} />
     </>
   )
 }
@@ -146,7 +217,15 @@ const weatherSettings = {
   },
 } as const
 
-function Atmosphere({ weather, frozen }: { weather: WeatherLevel; frozen: boolean }) {
+function Atmosphere({
+  weather,
+  frozen,
+  quality,
+}: {
+  weather: WeatherLevel
+  frozen: boolean
+  quality: SceneQuality
+}) {
   const fog = useRef<Fog>(null)
   const hemisphere = useRef<HemisphereLight>(null)
   const ambient = useRef<AmbientLight>(null)
@@ -177,7 +256,7 @@ function Atmosphere({ weather, frozen }: { weather: WeatherLevel; frozen: boolea
       <ambientLight ref={ambient} intensity={0.35} color="#7180b5" />
       <directionalLight
         ref={directional}
-        castShadow
+        castShadow={quality === 'normal'}
         position={[-8, 14, 8]}
         intensity={target.light}
         color="#d9e2ff"
@@ -192,12 +271,20 @@ function Atmosphere({ weather, frozen }: { weather: WeatherLevel; frozen: boolea
   )
 }
 
-function Stars({ weather, frozen }: { weather: WeatherLevel; frozen: boolean }) {
+function Stars({
+  weather,
+  frozen,
+  count,
+}: {
+  weather: WeatherLevel
+  frozen: boolean
+  count: number
+}) {
   const material = useRef<PointsMaterial>(null)
   const positions = useMemo(() => {
     const values: number[] = []
     let seed = 17
-    for (let index = 0; index < 90; index += 1) {
+    for (let index = 0; index < count; index += 1) {
       seed = (seed * 16807) % 2147483647
       const x = (seed / 2147483647 - 0.5) * 55
       seed = (seed * 16807) % 2147483647
@@ -207,7 +294,7 @@ function Stars({ weather, frozen }: { weather: WeatherLevel; frozen: boolean }) 
       values.push(x, y, z)
     }
     return new Float32Array(values)
-  }, [])
+  }, [count])
   useFrame((_, delta) => {
     if (!material.current) return
     const target = weatherSettings[weather].stars
@@ -231,12 +318,20 @@ function Stars({ weather, frozen }: { weather: WeatherLevel; frozen: boolean }) 
   )
 }
 
-function Sea({ frozen, weather }: { frozen: boolean; weather: WeatherLevel }) {
+function Sea({
+  frozen,
+  weather,
+  segments,
+}: {
+  frozen: boolean
+  weather: WeatherLevel
+  segments: number
+}) {
   const mesh = useRef<Mesh<PlaneGeometry>>(null)
   const material = useRef<MeshStandardMaterial>(null)
   const wave = useRef(weatherSettings[weather].wave)
   const geometry = useMemo(() => {
-    const value = new PlaneGeometry(48, 48, 48, 48)
+    const value = new PlaneGeometry(48, 48, segments, segments)
     value.rotateX(-Math.PI / 2)
     const position = value.attributes.position as BufferAttribute
     const colors: number[] = []
@@ -253,7 +348,7 @@ function Sea({ frozen, weather }: { frozen: boolean; weather: WeatherLevel }) {
     value.setAttribute('color', new Float32BufferAttribute(colors, 3))
     value.computeVertexNormals()
     return value
-  }, [])
+  }, [segments])
   const base = useMemo(
     () => Float32Array.from((geometry.attributes.position as BufferAttribute).array),
     [geometry],
@@ -305,7 +400,15 @@ function Sea({ frozen, weather }: { frozen: boolean; weather: WeatherLevel }) {
   )
 }
 
-function CloudBanks({ weather, frozen }: { weather: WeatherLevel; frozen: boolean }) {
+function CloudBanks({
+  weather,
+  frozen,
+  count,
+}: {
+  weather: WeatherLevel
+  frozen: boolean
+  count: number
+}) {
   const material = useRef<MeshStandardMaterial>(null)
   useFrame((_, delta) => {
     if (material.current)
@@ -315,7 +418,7 @@ function CloudBanks({ weather, frozen }: { weather: WeatherLevel; frozen: boolea
   })
   return (
     <group position={[0, 10, -17]} raycast={() => null}>
-      {[-13, -7, 0, 8, 14].map((x, index) => (
+      {[-13, -7, 0, 8, 14].slice(0, count).map((x, index) => (
         <mesh key={x} position={[x, index % 2, -index]} scale={[5.2, 0.75, 1.6]}>
           <sphereGeometry args={[1, 10, 6]} />
           <meshStandardMaterial
@@ -1073,7 +1176,7 @@ function DestinationHitbox({
   )
 }
 
-function DecorativeFleet({ frozen }: { frozen: boolean }) {
+function DecorativeFleet({ frozen, count }: { frozen: boolean; count: number }) {
   const boats = [
     {
       position: [11.8, -0.04, -7.8] as [number, number, number],
@@ -1108,11 +1211,46 @@ function DecorativeFleet({ frozen }: { frozen: boolean }) {
   ]
   return (
     <>
-      {boats.map((boat, index) => (
+      {boats.slice(0, count).map((boat, index) => (
         <DecorativeBoat key={index} {...boat} frozen={frozen} phase={index * 1.7} />
       ))}
     </>
   )
+}
+
+function PerformanceMonitor({
+  simulation,
+  onQualityChange,
+  onPerformance,
+  onFallback,
+}: {
+  simulation: PerformanceSimulation
+  onQualityChange: (quality: SceneQuality) => void
+  onPerformance: (fps: number, remaining: number) => void
+  onFallback: () => void
+}) {
+  const monitor = useRef(new FrameWindowMonitor())
+  const state = useRef(initialPerformanceState())
+  useFrame(() => {
+    const measured = monitor.current.frame(
+      performance.now(),
+      document.visibilityState === 'visible',
+    )
+    if (measured === null) return
+    const next = evaluatePerformanceWindow(
+      state.current,
+      simulatedFps(simulation, measured),
+    )
+    state.current = next
+    onQualityChange(next.quality)
+    const remaining =
+      next.quality === 'normal'
+        ? PERFORMANCE_LIMITS.lowWindows - next.lowWindows
+        : PERFORMANCE_LIMITS.criticalWindows - next.criticalWindows
+    onPerformance(next.fps, Math.max(0, remaining))
+    if (next.action === 'classic') onFallback()
+  })
+  return null
 }
 
 function DecorativeBoat({
